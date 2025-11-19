@@ -1,3 +1,7 @@
+* {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -7,15 +11,17 @@ html, body {
 .app-grid{
     grid-template-areas: 
         "sidebar header"
-        "sidebar section"
-        "sidebar footer";
+        "sidebar section";
+        
 
 
-    grid-template-columns: 1fr 6.5fr ;
-    grid-template-rows:  auto 1fr auto;
+    grid-template-columns: 1.3fr 6.2fr ;
+    grid-template-rows:  auto 1fr;
     min-height: 100vh;
     gap: 0;
     display: grid;
+    width: 100vw; /* Ensure full viewport width */
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .sidebar {
@@ -28,6 +34,7 @@ html, body {
 /* Content area below the header */
 .section {
     grid-area: section;
+
 }
 
 .header {
@@ -161,7 +168,18 @@ html, body {
     justify-content: flex-start;
     overflow: auto;   
     gap: 0.5rem;
+    align-items: flex-start; /* Add this */
+    min-width: 0; /* Prevent flex items from overflowing */
 }
+
+
+/* Ensure cards maintain their layout */
+.card-1, .card-2, .card-3, .card-4 {
+    flex-shrink: 0; /* Prevent cards from shrinking */
+    min-width: 0; /* Allow content to shrink within flex container */
+}
+
+
 /* ---------- CARD ---------- */
 .card-1, .card-2, .card-3, .card-4 {
   background-color: #ffffff;
@@ -178,11 +196,16 @@ html, body {
   height: 265px;
 }
 
-.card-1, .card-3{
-  width: 600px;
-
+/* Specific card widths with fallbacks */
+.card-1, .card-3 {
+    width: 600px;
+    max-width: 100%; /* Responsive fallback */
 }
 
+.card-2, .card-4 {
+    width: 500px;
+    max-width: 100%; /* Responsive fallback */
+}
 
 .card-3, .card-4{
     margin-top: 2px;
@@ -252,5 +275,23 @@ section h1, section h2, section h3 {
 }
 /* Responsive rules removed as requested - desktop styles preserved */
 
+/* Add media queries for smaller screens */
+@media (max-width: 1400px) {
+    .card-1, .card-3 {
+        width: 550px;
+    }
+    .card-2, .card-4 {
+        width: 450px;
+    }
+}
 
+@media (max-width: 1200px) {
+    .app-grid {
+        grid-template-columns: 1.5fr 5fr;
+    }
+    .card-1, .card-2, .card-3, .card-4 {
+        width: 100%;
+        max-width: 100%;
+    }
+}
 

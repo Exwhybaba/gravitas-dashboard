@@ -311,7 +311,7 @@ transTable = dash_table.DataTable(
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.layout = html.Div([
-
+    html.Meta(name='viewport', content='width=device-width, initial-scale=1.0'),
     html.Div([
          html.Img(
                 src=app.get_asset_url('images/Gracefield_logo.png'),
