@@ -533,7 +533,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
         xaxis_title='Month',
         yaxis_title='Monthly_Consumption',
         template="plotly_white",
-        width=600,
+        width=570,
         height=245,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',

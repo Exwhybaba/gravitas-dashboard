@@ -11,7 +11,7 @@ html, body {
         "sidebar footer";
 
 
-    grid-template-columns: 1.2fr 6fr ;
+    grid-template-columns: 1fr 6.5fr ;
     grid-template-rows:  auto 1fr auto;
     min-height: 100vh;
     gap: 0;
@@ -179,7 +179,7 @@ html, body {
 }
 
 .card-1, .card-3{
-  width: 607px;
+  width: 600px;
 
 }
 
@@ -199,7 +199,7 @@ html, body {
     text-align: center;
     transition: all 0.3s ease;
     border: 1px solid #E8D5B7;
-    width:  610px;
+    width:  600px;
     height: 265px;
     overflow: hidden;
 }
