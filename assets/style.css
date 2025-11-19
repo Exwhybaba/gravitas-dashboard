@@ -1,5 +1,26 @@
+/* Ensure consistent fonts in Docker */
 * {
-  box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+                 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 
+                 'Helvetica Neue', sans-serif !important;
+}
+
+/* Force consistent box sizing */
+html {
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
+/* Ensure charts render consistently */
+.js-plotly-plot .plotly, 
+.js-plotly-plot .plotly div {
+    direction: ltr;
+    font-family: 'Open Sans', verdana, arial, sans-serif;
+    margin: 0;
+    padding: 0;
 }
 
 html, body {
@@ -20,8 +41,9 @@ html, body {
     min-height: 100vh;
     gap: 0;
     display: grid;
+    height: 100vh; 
     width: 100vw; /* Ensure full viewport width */
-    overflow-x: hidden; /* Prevent horizontal scroll */
+    overflow: hidden; /* Prevent overall scrolling */
 }
 
 .sidebar {
@@ -39,7 +61,7 @@ html, body {
 
 .header {
     grid-area: header;
-    position: static;
+    position: sticky;
     top: 0;
     z-index: 10;
     margin: 0;
@@ -105,16 +127,7 @@ html, body {
   max-width: 260px;
 }
 
-.footer {
-    grid-area: footer;
-    background: #F9F7F4;
-    padding: 1rem 2rem;
-    border-top: 1px solid #C7A64F;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-}
+
 
 /* Tab buttons */
 .tab-btn {
@@ -169,7 +182,10 @@ html, body {
     overflow: auto;   
     gap: 0.5rem;
     align-items: flex-start; /* Add this */
-    min-width: 0; /* Prevent flex items from overflowing */
+    min-width: 0;
+    overflow-y: auto; /* Only vertical scrolling if needed */
+    max-height: calc(100vh - 75px); /* Account for header height */
+    height: fit-content; /* Adjust to content */
 }
 
 
@@ -198,13 +214,13 @@ html, body {
 
 /* Specific card widths with fallbacks */
 .card-1, .card-3 {
-    width: 600px;
-    max-width: 100%; /* Responsive fallback */
+    width: 610px;
+    max-width: calc(50% - 1rem); /* Responsive constraint */
 }
 
 .card-2, .card-4 {
     width: 500px;
-    max-width: 100%; /* Responsive fallback */
+    max-width: calc(50% - 1rem); /* Responsive constraint */
 }
 
 .card-3, .card-4{
@@ -222,7 +238,7 @@ html, body {
     text-align: center;
     transition: all 0.3s ease;
     border: 1px solid #E8D5B7;
-    width:  600px;
+    width:  610px;
     height: 265px;
     overflow: hidden;
 }
@@ -274,6 +290,21 @@ section h1, section h2, section h3 {
   margin-top: 0;
 }
 /* Responsive rules removed as requested - desktop styles preserved */
+
+
+
+.consumption-chart, .consumption-line, .cost-pie, 
+.fuel-chart, .downtime-chart, .stock-chart, .runtime-chart {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Specifically for pie charts */
+.cost-pie, .runtime-chart {
+    height: 220px !important;
+    max-height: 220px !important;
+}
+
 
 /* Add media queries for smaller screens */
 @media (max-width: 1400px) {

@@ -4,6 +4,9 @@ import plotly.express as px
 import seaborn as sb
 import pandas as pd
 from dash import Dash, dcc, html, Input, Output, callback_context
+import os
+import warnings
+warnings.filterwarnings('ignore')
 
 
 
@@ -310,6 +313,8 @@ transTable = dash_table.DataTable(
             )
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
+app.config.suppress_callback_exceptions = True
 app.layout = html.Div([
     html.Meta(name='viewport', content='width=device-width, initial-scale=1.0'),
     html.Div([
@@ -322,9 +327,9 @@ app.layout = html.Div([
             metr_loc, 
             gen_dropdown,
             html.Button("Power Analytics", id="tab1-btn", className="tab-btn active-tab", 
-                        style={"marginLeft": "0.5rem", "marginTop": "6rem"}),
+                        style={"marginLeft": "0.5rem", "marginTop": "4rem"}),
             html.Button("Operations", id="tab2-btn", className="tab-btn",
-                        style={"marginLeft": "0.5rem", "marginTop": "2rem"})
+                        style={"marginLeft": "0.8rem", "marginTop": "4rem"})
 
        
         
@@ -533,7 +538,8 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
         xaxis_title='Month',
         yaxis_title='Monthly_Consumption',
         template="plotly_white",
-        width=570,
+        # showlegend=False,
+        width=520,
         height=245,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -824,4 +830,13 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=8050)
+    port = int(os.environ.get("PORT", 8050))
+    debug_mode = os.environ.get("DASH_DEBUG_MODE", "false").lower() == "true"
+    
+    app.run(
+        debug=debug_mode,
+        host="0.0.0.0",
+        port=port,
+        dev_tools_ui=debug_mode,
+        dev_tools_props_check=debug_mode
+    )
