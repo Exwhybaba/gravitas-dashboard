@@ -47,6 +47,7 @@ html, body {
     grid-area: sidebar;
     background-color: rgb(255, 255, 255);
     margin: 2rem  2rem 2rem 2rem;
+    overflow-y: auto;
     
 }
 

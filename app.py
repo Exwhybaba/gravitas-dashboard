@@ -6,284 +6,205 @@ import pandas as pd
 from dash import Dash, dcc, html, Input, Output, callback_context
 import os
 import warnings
+import logging
+from functools import lru_cache
+from datetime import datetime
+import copy
+
 warnings.filterwarnings('ignore')
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+# Constants
+URL = "https://docs.google.com/spreadsheets/d/1O-mPctFgp6oqd-VK9YKHyPq-asuve2ZM/export?format=xlsx"
+MONTH_ORDER = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 
-url = "https://docs.google.com/spreadsheets/d/1O-mPctFgp6oqd-VK9YKHyPq-asuve2ZM/export?format=xlsx"
-df = pd.ExcelFile(url)
-
-
-df_meter = df.parse(0)
-
-month_order = ["January","February","March","April","May","June","July","August","September","October","November","December"]
-
-df_meter['Month'] = pd.Categorical(df_meter['Month'], categories=month_order, ordered=True)
-
-
-
-## Cost Break_Down
-
-df_cost =  df.parse(1)
-df_cost.at[125, 'Rate'] = 127000
-df_cost.at[125, 'Amount (NGN)'] = 127000
-df_cost.at[126, 'Rate'] = 127000
-df_cost.at[126, 'Amount (NGN)'] = 127000
-
-df_cost['Generator'].replace(['new 80kva', 'both 80kva', 'old 80kva', 'new 200kva', '55Kva'],
-                             ['80kva', '80kva', '80kva',  '200kva', '55kva' ], inplace= True)
-
-df_cost['Date'] = pd.to_datetime(df_cost['Date'])
-df_cost['Year'] = df_cost['Date'].dt.strftime('%Y')
-df_cost['Month'] = df_cost['Date'].dt.strftime('%B')
-
-corr_Rout = df_cost.loc[df_cost['Type of Activity'].isin(['Corrective maintenance', 'Routine Maintenance', 'Fuel'])].copy()
-corr_Rout.drop(columns=['id'], inplace=True)
-corr_Rout.reset_index(drop= True, inplace=True)
-
-#this would be change to include other years later
-df_cost_2025 = corr_Rout.loc[corr_Rout['Year'] == '2025'].copy()
-
-
-
-
-## Downtime
-df_downTime = df.parse(2)
-df_downTime = df_downTime.sort_values(by ='Duration_Hours', ascending= False)
-df_downTime['Generator'] = df_downTime['Generator'].replace('88kva', '80kva')
-
-# df_downTime = df_downTime.groupby(["Month", "Generator"], as_index=False)["Duration_Hours"].sum()
-
-## runtime
-run_time = df.parse(4)
-run_time['Date'] = pd.to_datetime(run_time['Date'])
-
-run_time['Month']=run_time['Date'].dt.strftime('%B')
-run_time['Day'] = run_time['Date'].dt.strftime('%A')
-df_agg = run_time.groupby(['Month', 'Generator'], as_index=False)['Hours Operated'].sum()
-df_agg['Month'] = pd.Categorical(df_agg['Month'], categories=month_order, ordered=True)
-df_agg = df_agg.sort_values(by='Month')
-
-
-
-# Fuel Supplied
-df_supplied = df.parse(3)
-df_supplied.at[1, 'Total Fuel Used'] = 4200
-df_supplied.at[1, 'Fuel Added (Total)'] = 3000
-df_supplied.drop(index = 10, inplace = True)
-
-df_supplied['Date'] = pd.to_datetime(df_supplied['Date'])
-df_supplied['Month'] = df_supplied['Date'].dt.strftime('%B')
-
-
-
-
-##stock
-df_stock = df.parse(5)
-df_stock['Total Available Stock'] = df_stock['Opening_Stock'] + df_stock['Purchased_Stock']
-
-df_stock.rename(columns={"Month": "Date"}, inplace = True)
-df_stock['Month'] = pd.to_datetime(df_stock['Date']).dt.strftime('%B')
-
-# Aggregate by Generator_Size + Filter_Type
-df_rc = df_stock.groupby(['Generator_Size','Filter_Type'], as_index=False).agg({
-    'Consumed_Stock':'sum',
-    'Remaining_Stock':'sum'
-})
-
-# Melt for stacked plotting
-df_rc_melt = df_rc.melt(
-    id_vars=['Generator_Size','Filter_Type'],
-    value_vars=['Consumed_Stock','Remaining_Stock'],
-    var_name='Stock_Status',
-    value_name='Units'
-)
-
-
-def refresh_data():
-    """Reload data files from disk (or URL) and update module-level dataframes.
-    Safe to call repeatedly; logs failures silently and keeps previous data if reload fails.
-    """
-    global df, df_meter, df_cost, df_cost_2025, df_downTime, run_time, df_agg
-    global df_supplied, df_stock, df_rc, df_rc_melt, power_df
+@lru_cache(maxsize=1)
+def load_initial_data():
+    """Load and process all data once at startup. Cached for performance."""
+    logger.info("Loading initial data from source...")
+    
     try:
-        # reload the Excel source (same URL/path used above)
-        df_new = pd.ExcelFile(url)
-
-        df_meter_new = df_new.parse(0)
-        df_meter_new['Month'] = pd.Categorical(df_meter_new['Month'], categories=month_order, ordered=True)
-
-        # cost sheet
-        df_cost_new = df_new.parse(1)
-        try:
-            df_cost_new.at[125, 'Rate'] = 127000
-            df_cost_new.at[125, 'Amount (NGN)'] = 127000
-            df_cost_new.at[126, 'Rate'] = 127000
-            df_cost_new.at[126, 'Amount (NGN)'] = 127000
-        except Exception:
-            pass
-        df_cost_new['Generator'].replace(['new 80kva', 'both 80kva', 'old 80kva', 'new 200kva', '55Kva'],
-                                         ['80kva', '80kva', '80kva',  '200kva', '55kva' ], inplace= True)
-        df_cost_new['Date'] = pd.to_datetime(df_cost_new['Date'])
-        df_cost_new['Year'] = df_cost_new['Date'].dt.strftime('%Y')
-        df_cost_new['Month'] = df_cost_new['Date'].dt.strftime('%B')
-        corr_Rout_new = df_cost_new.loc[df_cost_new['Type of Activity'].isin(['Corrective maintenance', 'Routine Maintenance', 'Fuel'])]
-        try:
-            corr_Rout_new.drop(columns=['id'], inplace=True)
-        except Exception:
-            pass
-        df_cost_2025_new = corr_Rout_new.loc[corr_Rout_new['Year'] == '2025']
-
-        # downtime
-        df_downTime_new = df_new.parse(2)
-        df_downTime_new = df_downTime_new.sort_values(by ='Duration_Hours', ascending= False)
-        df_downTime_new['Generator'] = df_downTime_new['Generator'].replace('88kva', '80kva')
-
-        month_order = [
-            "January","February","March","April","May","June",
-            "July","August","September","October","November","December"
-        ]
-
-        df_downTime_new["Month"] = pd.Categorical(
-            df_downTime_new["Month"],
-            categories=month_order,
+        df = pd.ExcelFile(URL)
+        
+        # Meter data
+        df_meter = df.parse(0)
+        df_meter['Month'] = pd.Categorical(df_meter['Month'], categories=MONTH_ORDER, ordered=True)
+        
+        # Cost data
+        df_cost = df.parse(1)
+        
+        # Safe data modifications with validation
+        def safe_set_value(dataframe, index, column, value):
+            """Safely set a value in dataframe with bounds checking"""
+            if index < len(dataframe):
+                dataframe.at[index, column] = value
+            else:
+                logger.warning(f"Index {index} out of bounds for {column}")
+        
+        safe_set_value(df_cost, 125, 'Rate', 127000)
+        safe_set_value(df_cost, 125, 'Amount (NGN)', 127000)
+        safe_set_value(df_cost, 126, 'Rate', 127000)
+        safe_set_value(df_cost, 126, 'Amount (NGN)', 127000)
+        
+        df_cost['Generator'].replace(['new 80kva', 'both 80kva', 'old 80kva', 'new 200kva', '55Kva'],
+                                     ['80kva', '80kva', '80kva', '200kva', '55kva'], inplace=True)
+        
+        df_cost['Date'] = pd.to_datetime(df_cost['Date'], errors='coerce')
+        df_cost['Year'] = df_cost['Date'].dt.strftime('%Y')
+        df_cost['Month'] = df_cost['Date'].dt.strftime('%B')
+        
+        corr_Rout = df_cost.loc[df_cost['Type of Activity'].isin(['Corrective maintenance', 'Routine Maintenance', 'Fuel'])].copy()
+        if 'id' in corr_Rout.columns:
+            corr_Rout.drop(columns=['id'], inplace=True)
+        corr_Rout.reset_index(drop=True, inplace=True)
+        
+        df_cost_2025 = corr_Rout.loc[corr_Rout['Year'] == '2025'].copy()
+        
+        # Downtime data
+        df_downTime = df.parse(2)
+        df_downTime = df_downTime.sort_values(by='Duration_Hours', ascending=False)
+        df_downTime['Generator'] = df_downTime['Generator'].replace('88kva', '80kva')
+        
+        # Group downtime by month and generator
+        df_downTime["Month"] = pd.Categorical(
+            df_downTime["Month"],
+            categories=MONTH_ORDER,
             ordered=True
         )
-
-        df_downTime_new = df_downTime_new.groupby(["Month", "Generator"], as_index=False)["Duration_Hours"].sum()
-
-        # runtime
-        run_time_new = df_new.parse(4)
-        run_time_new['Date'] = pd.to_datetime(run_time_new['Date'])
-        run_time_new['Month']=run_time_new['Date'].dt.strftime('%B')
-        run_time_new['Day'] = run_time_new['Date'].dt.strftime('%A')
-        df_agg_new = run_time_new.groupby(['Month', 'Generator'], as_index=False)['Hours Operated'].sum()
-        df_agg_new['Month'] = pd.Categorical(df_agg_new['Month'], categories=month_order, ordered=True)
-        df_agg_new = df_agg_new.sort_values(by='Month')
-
-        # fuel supplied
-        df_supplied_new = df_new.parse(3)
-        try:
-            df_supplied_new.at[1, 'Total Fuel Used'] = 4200
-            df_supplied_new.at[1, 'Fuel Added (Total)'] = 3000
-            df_supplied_new.drop(index = 10, inplace = True)
-        except Exception:
-            pass
-        df_supplied_new['Date'] = pd.to_datetime(df_supplied_new['Date'])
-        df_supplied_new['Month'] = df_supplied_new['Date'].dt.strftime('%B')
-
-        # stock
-        df_stock_new = df_new.parse(5)
-        df_stock_new['Total Available Stock'] = df_stock_new['Opening_Stock'] + df_stock_new['Purchased_Stock']
-        df_stock_new.rename(columns={"Month": "Date"}, inplace = True)
-        df_stock_new['Month'] = pd.to_datetime(df_stock_new['Date']).dt.strftime('%B')
-        df_rc_new = df_stock_new.groupby(['Generator_Size','Filter_Type'], as_index=False).agg({
+        df_downTime = df_downTime.groupby(["Month", "Generator"], as_index=False)["Duration_Hours"].sum()
+        
+        # Runtime data
+        run_time = df.parse(4)
+        run_time['Date'] = pd.to_datetime(run_time['Date'], errors='coerce')
+        run_time['Month'] = run_time['Date'].dt.strftime('%B')
+        run_time['Day'] = run_time['Date'].dt.strftime('%A')
+        df_agg = run_time.groupby(['Month', 'Generator'], as_index=False)['Hours Operated'].sum()
+        df_agg['Month'] = pd.Categorical(df_agg['Month'], categories=MONTH_ORDER, ordered=True)
+        df_agg = df_agg.sort_values(by='Month')
+        
+        # Fuel supplied data
+        df_supplied = df.parse(3)
+        safe_set_value(df_supplied, 1, 'Total Fuel Used', 4200)
+        safe_set_value(df_supplied, 1, 'Fuel Added (Total)', 3000)
+        
+        if len(df_supplied) > 10:
+            df_supplied.drop(index=10, inplace=True)
+            
+        df_supplied['Date'] = pd.to_datetime(df_supplied['Date'], errors='coerce')
+        df_supplied['Month'] = df_supplied['Date'].dt.strftime('%B')
+        
+        # Stock data
+        df_stock = df.parse(5)
+        df_stock['Total Available Stock'] = df_stock['Opening_Stock'] + df_stock['Purchased_Stock']
+        df_stock.rename(columns={"Month": "Date"}, inplace=True)
+        df_stock['Month'] = pd.to_datetime(df_stock['Date'], errors='coerce').dt.strftime('%B')
+        
+        # Aggregate by Generator_Size + Filter_Type
+        df_rc = df_stock.groupby(['Generator_Size','Filter_Type'], as_index=False).agg({
             'Consumed_Stock':'sum',
             'Remaining_Stock':'sum'
         })
-        df_rc_melt_new = df_rc_new.melt(
+        
+        # Melt for stacked plotting
+        df_rc_melt = df_rc.melt(
             id_vars=['Generator_Size','Filter_Type'],
             value_vars=['Consumed_Stock','Remaining_Stock'],
             var_name='Stock_Status',
             value_name='Units'
         )
+        
+        # Power transactions data
+        power_df = df.parse(6)
+        
+        # Convert Transaction Date safely
+        power_df['Transaction Date'] = power_df['Transaction Date'].astype(str)
+        power_df['Transaction Date'] = pd.to_datetime(power_df['Transaction Date'], errors='coerce')
+        power_df = power_df.dropna(subset=['Transaction Date'])
+        
+        if 'Transaction Date' in power_df.columns:
+            power_df['Month'] = power_df['Transaction Date'].dt.strftime('%B')
+        
+        power_df.reset_index(drop=True, inplace=True)
+        
+        logger.info("Data loaded successfully")
+        
+        return {
+            'df_meter': df_meter,
+            'df_cost': df_cost,
+            'df_cost_2025': df_cost_2025,
+            'df_downTime': df_downTime,
+            'run_time': run_time,
+            'df_agg': df_agg,
+            'df_supplied': df_supplied,
+            'df_stock': df_stock,
+            'df_rc_melt': df_rc_melt,
+            'power_df': power_df
+        }
+        
+    except Exception as e:
+        logger.error(f"Error loading initial data: {e}")
+        # Return empty dataframes to prevent app crash
+        return {
+            'df_meter': pd.DataFrame(),
+            'df_cost': pd.DataFrame(),
+            'df_cost_2025': pd.DataFrame(),
+            'df_downTime': pd.DataFrame(),
+            'run_time': pd.DataFrame(),
+            'df_agg': pd.DataFrame(),
+            'df_supplied': pd.DataFrame(),
+            'df_stock': pd.DataFrame(),
+            'df_rc_melt': pd.DataFrame(),
+            'power_df': pd.DataFrame()
+        }
 
-        # If all of the above parsing succeeded, swap in the new dataframes
-        df = df_new
-        df_meter = df_meter_new
-        df_cost = df_cost_new
-        df_cost_2025 = df_cost_2025_new
-        df_downTime = df_downTime_new
-        run_time = run_time_new
-        df_agg = df_agg_new
-        df_supplied = df_supplied_new
-        df_stock = df_stock_new
-        df_rc = df_rc_new
-        df_rc_melt = df_rc_melt_new
+# Load data once at startup
+DATA = load_initial_data()
 
-    except Exception:
-        # keep existing data on failure
-        return
-
-    # reload power transactions (Excel sheet 6) if available
-    try:
-        df2_new = pd.ExcelFile(path2)
-        power_df_new = df2_new.parse(6)
-        power_df_new['Transaction Date'] = power_df_new['Transaction Date'].astype(str)
-        power_df_new['Transaction Date'] = pd.to_datetime(power_df_new['Transaction Date'], errors='coerce')
-        power_df_new = power_df_new.dropna(subset=['Transaction Date'])
-        if 'Transaction Date' in power_df_new.columns:
-            power_df_new['Month'] = power_df_new['Transaction Date'].dt.strftime('%B')
-        power_df_new.reset_index(drop=True, inplace=True)
-        power_df = power_df_new
-    except Exception:
-        pass
-
-
-
-
-
-##Power Transaction
-path2 = "https://docs.google.com/spreadsheets/d/1O-mPctFgp6oqd-VK9YKHyPq-asuve2ZM/export?format=xlsx"
-df2 = pd.ExcelFile(path2)
-power_df = df2.parse(6)
-
-# Convert Transaction Date to string first to handle mixed types, then to datetime
-try:
-    power_df['Transaction Date'] = power_df['Transaction Date'].astype(str)
-    power_df['Transaction Date'] = pd.to_datetime(power_df['Transaction Date'], errors='coerce')
-    # Drop rows where date conversion failed
-    power_df = power_df.dropna(subset=['Transaction Date'])
-except Exception:
-    pass
-
-# Extract month name for easier filtering in callback (keep all months)
-if 'Transaction Date' in power_df.columns:
-    power_df['Month'] = power_df['Transaction Date'].dt.strftime('%B')
-
-power_df.reset_index(drop=True, inplace=True)
-
-
-
-
-#======interactivity========
+def get_data_copy():
+    """Return deep copies of all dataframes to ensure thread safety"""
+    return {key: copy.deepcopy(value) for key, value in DATA.items()}
 
 # Define all location/address options for filtering
 all_locations = sorted(list(set(
-    list(df_meter["Location"].unique()) +
+    list(DATA['df_meter']["Location"].unique()) +
     ['Rosewood', 'Cedar A', 'Tuck-shop', 'Cedar B',
      'Gravitas Head Office', 'Engineering Yard', 'NBIC 2', 'NBIC 1',
      'HELIUM ', 'DIC']
-)))
+))) if not DATA['df_meter'].empty else []
 
 # Location filter (now includes both meter locations and transaction addresses)
 metr_loc = dcc.Dropdown(
-        id='location_filter',
-        options=[{"label": loc, "value": loc} for loc in all_locations],
-        placeholder="Select Location",
-        multi=True,
-        style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
-    )
+    id='location_filter',
+    options=[{"label": loc, "value": loc} for loc in all_locations],
+    placeholder="Select Location",
+    multi=True,
+    style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
+)
 
-# Month filter
+# Month filter - safely get unique months
+available_months = DATA['df_meter']["Month"].unique() if not DATA['df_meter'].empty else []
 mtr_month = dcc.Dropdown(
-        id='month_filter',
-        options=[{"label": m, "value": m} for m in df_meter["Month"].unique()],
-        placeholder="Select Month",
-        multi=True,
-        style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
-    )
+    id='month_filter',
+    options=[{"label": m, "value": m} for m in available_months],
+    placeholder="Select Month",
+    multi=True,
+    style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
+)
 
-# Generator dropdown
+# Generator dropdown - safely get unique generators
+available_generators = sorted(DATA['df_cost_2025']["Generator"].unique()) if not DATA['df_cost_2025'].empty else []
 gen_dropdown = dcc.Dropdown(
-        id='generator_type',
-        options=[{"label": gen, "value": gen} for gen in sorted(df_cost_2025["Generator"].unique())],
-        placeholder="Select Generator Type",
-        multi=True,
-        style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
-        )
+    id='generator_type',
+    options=[{"label": gen, "value": gen} for gen in available_generators],
+    placeholder="Select Generator Type",
+    multi=True,
+    style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
+)
 
-# Graph
+# Graph components
 consChart = dcc.Graph(id='consumption_chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"}, className='consumption-chart')
 
@@ -292,7 +213,6 @@ consumpLine = dcc.Graph(id='consumption_line', config={"responsive": True},
 
 costPie = dcc.Graph(id='cost_pie', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"}, className='cost-pie')
-
 
 fuelChart = dcc.Graph(id='fuel_chart', className='fuel-chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
@@ -307,37 +227,37 @@ runtimeChart = dcc.Graph(id='runtime_chart', className='runtime-chart', config={
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
 
 
-# (transactions table markup will be placed directly inside card-3 in the layout)
+# Transactions table markup
 transTable = dash_table.DataTable(
-                id='transactions_table',
-                columns=[{"name": "Meter Number", "id": "Meter Number"}],
-                data=[],
-                page_size=8,
-                fixed_rows={'headers': True},
-                style_table={'overflowX': 'auto', 'height': '90%', 'width': '98%'},
-                style_header={
-                    'backgroundColor': '#f7f9fc',
-                    'fontWeight': '20',
-                    'borderBottom': '1px solid #ddd',
-                    'fontSize': '12px'
-                },
-                style_cell={
-                    'textAlign': 'left',
-                    'padding': '4px',
-                    'whiteSpace': 'normal',
-                    'height': 'auto',
-                    'minWidth': '25px',
-                    'maxWidth': '150px',
-                    'overflow': 'hidden',
-                    'textOverflow': 'ellipsis'
-                },
-                css=[
-                    {
-                        'selector': '.dash-table-container .dash-spreadsheet-container',
-                        'rule': 'height: calc(100% - 36px) !important;'
-                    }
-                ]
-            )
+    id='transactions_table',
+    columns=[{"name": "Meter Number", "id": "Meter Number"}],
+    data=[],
+    page_size=8,
+    fixed_rows={'headers': True},
+    style_table={'overflowX': 'auto', 'height': '90%', 'width': '98%'},
+    style_header={
+        'backgroundColor': '#f7f9fc',
+        'fontWeight': '20',
+        'borderBottom': '1px solid #ddd',
+        'fontSize': '12px'
+    },
+    style_cell={
+        'textAlign': 'left',
+        'padding': '4px',
+        'whiteSpace': 'normal',
+        'height': 'auto',
+        'minWidth': '25px',
+        'maxWidth': '150px',
+        'overflow': 'hidden',
+        'textOverflow': 'ellipsis'
+    },
+    css=[
+        {
+            'selector': '.dash-table-container .dash-spreadsheet-container',
+            'rule': 'height: calc(100% - 36px) !important;'
+        }
+    ]
+)
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
@@ -345,29 +265,18 @@ app.config.suppress_callback_exceptions = True
 app.layout = html.Div([
     html.Meta(name='viewport', content='width=device-width, initial-scale=1.0'),
     html.Div([
-         # Add toggle button as a Dash component instead of pure JavaScript
-            # html.Button(
-            #     "☰",
-            #     id="sidebar-toggle-btn",
-            #     className="sidebar-toggle-js",
-            #     style={"display": "none"}  # Hidden by default, shown via CSS
-            #     ),
-
-         html.Img(
-                src=app.get_asset_url('images/Gracefield_logo.png'),
-                className="logo",
-                alt="Gracefield logo"
-            ),
-            mtr_month,
-            metr_loc, 
-            gen_dropdown,
-            html.Button("Power Analytics", id="tab1-btn", className="tab-btn active-tab", 
-                        style={"marginLeft": "0.5rem", "marginTop": "4rem"}),
-            html.Button("Operations", id="tab2-btn", className="tab-btn",
-                        style={"marginLeft": "0.8rem", "marginTop": "4rem"})
-
-       
-        
+        html.Img(
+            src=app.get_asset_url('images/Gracefield_logo.png'),
+            className="logo",
+            alt="Gracefield logo"
+        ),
+        mtr_month,
+        metr_loc, 
+        gen_dropdown,
+        html.Button("Power Analytics", id="tab1-btn", className="tab-btn active-tab", 
+                   style={"marginLeft": "0.5rem", "marginTop": "4rem"}),
+        html.Button("Operations", id="tab2-btn", className="tab-btn",
+                   style={"marginLeft": "0.8rem", "marginTop": "4rem"})
     ], className="sidebar"),
     
     html.Div([
@@ -375,36 +284,35 @@ app.layout = html.Div([
         html.Div([
             html.Div("💼", className="kpi-icon"),
             html.Div([
-                        html.P("Gravitas Revenue", className="kpi-label"),
-                        html.H3(id="gravitas_revenue", className="kpi-value")
-                    ], className="kpi-text")
-                ], className="kpi-card"),
+                html.P("Gravitas Revenue", className="kpi-label"),
+                html.H3(id="gravitas_revenue", className="kpi-value")
+            ], className="kpi-text")
+        ], className="kpi-card"),
 
         html.Div([
             html.Div("👥", className="kpi-icon"),
             html.Div([
                 html.P("Subscriber Revenue", className="kpi-label"),
                 html.H3(id="subs_revenue", className="kpi-value")
-                        ], className="kpi-text")
-                    ], className="kpi-card"),
+            ], className="kpi-text")
+        ], className="kpi-card"),
 
         html.Div([
             html.Div("⏱️", className="kpi-icon"),
             html.Div([
                 html.P("Operated Hours", className="kpi-label"),
                 html.H3(id="operated_hours", className="kpi-value")
-                        ], className="kpi-text")
-                    ], className="kpi-card"),
+            ], className="kpi-text")
+        ], className="kpi-card"),
 
         html.Div([
             html.Div("⏸️", className="kpi-icon"),
             html.Div([
                 html.P("Planned Outage", className="kpi-label"),
                 html.H3(id="planned_outage", className="kpi-value")
-                        ], className="kpi-text")
-                    ], className="kpi-card")
-            ], className="header"),
-
+            ], className="kpi-text")
+        ], className="kpi-card")
+    ], className="header"),
 
     html.Div([
         html.Div([
@@ -422,7 +330,6 @@ app.layout = html.Div([
         html.Div([
             costPie
         ], className="card-4"),    
-
     ], id="tab-1", className="section"),
 
     html.Div([
@@ -441,19 +348,8 @@ app.layout = html.Div([
         html.Div([
             runtimeChart
         ], className="card-4"),    
-
     ], id="tab-2", className="section", style={"display": "none"}),
-
-    # html.Div([
-    #     html.Span("© 2025 Gracefield. All rights reserved. "),
-    # ], className="footer")  
-
-    
-    dcc.Interval(id='data-refresh-interval', interval=60000, n_intervals=0),
-], className= "app-grid")
-
-
-
+], className="app-grid")
 
 # Tab switching callback
 @app.callback(
@@ -482,47 +378,55 @@ def switch_tabs(tab1_clicks, tab2_clicks):
     else:
         return {'display': 'none'}, {'display': 'flex'}, 'tab-btn', 'tab-btn active-tab'
 
-
-
-
 @app.callback(
     [
-    Output('consumption_chart', 'figure'),
-    Output('consumption_line', 'figure'),
-    Output('transactions_table', 'data'),
-    Output('transactions_table', 'columns'),
-    Output('gravitas_revenue', 'children'),
-    Output('subs_revenue', 'children'),
-    Output('operated_hours', 'children'),
-    Output('planned_outage', 'children'),
-    Output('cost_pie', 'figure'),
-    Output('fuel_chart', 'figure'),
-    Output('downtime_chart', 'figure'),
-    Output('stock_chart', 'figure'),
-    Output('runtime_chart', 'figure'),
+        Output('consumption_chart', 'figure'),
+        Output('consumption_line', 'figure'),
+        Output('transactions_table', 'data'),
+        Output('transactions_table', 'columns'),
+        Output('gravitas_revenue', 'children'),
+        Output('subs_revenue', 'children'),
+        Output('operated_hours', 'children'),
+        Output('planned_outage', 'children'),
+        Output('cost_pie', 'figure'),
+        Output('fuel_chart', 'figure'),
+        Output('downtime_chart', 'figure'),
+        Output('stock_chart', 'figure'),
+        Output('runtime_chart', 'figure'),
     ],
-
     [
         Input('location_filter', 'value'),
         Input('month_filter', 'value'),
         Input('generator_type', 'value'),
-        Input('data-refresh-interval', 'n_intervals'),
     ]
 )
-def update_chart(selected_locations, selected_months, selected_generators, n_intervals):
-    # If the interval ticked, attempt to refresh the source data first.
-    try:
-        refresh_data()
-    except Exception:
-        pass
+def update_chart(selected_locations, selected_months, selected_generators):
+    """Update all charts and data based on user filters - thread-safe version"""
+    
+    # Get thread-safe copies of data
+    data = get_data_copy()
+    
+    # Handle empty data case
+    if data['df_meter'].empty:
+        empty_fig = px.bar(title="No data available")
+        empty_fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
+        return [empty_fig] * 13
+    
+    filtered_meter = data['df_meter'].copy()
 
-    filtered_meter = df_meter.copy()
+    filtered_meter['Location'] = filtered_meter['Location'].str.strip()
+    selected_locations = [loc.strip() for loc in selected_locations] if selected_locations else []
+
 
     if selected_locations:
         filtered_meter = filtered_meter[filtered_meter["Location"].isin(selected_locations)]
 
     if selected_months:
-        filtered_meter = filtered_meter[filtered_meter["Month"].isin(selected_months)]
+        filtered_months = selected_months if isinstance(selected_months, list) else [selected_months]
+        filtered_meter = filtered_meter[filtered_meter["Month"].isin(filtered_months)]
 
     filtered_meter['Rate'] = filtered_meter['Location'].apply(lambda x: 285 if x in ['9mobile', 'Providus'] else 100)
     filtered_meter['Amount'] = filtered_meter['Rate'] * filtered_meter['Monthly_Consumption']
@@ -536,7 +440,6 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     ].sum()
     
     # --- Bar chart with brand-aligned color palette ---
-    # Custom color palette: Gold, Navy, Slate, Cream
     brand_colors = ['#C7A64F', '#2C3E50', "#5E7286", '#F4E4C1', '#E8D5B7']
     
     fig_bar = px.bar(
@@ -584,7 +487,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     fig_line.update_traces(line=dict(width=2.5))
 
     # --- Transactions table ---
-    table_df = power_df.copy()
+    table_df = data['power_df'].copy()
 
     # Filter by month
     if selected_months:
@@ -592,15 +495,19 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
         table_df = table_df[table_df['Month'].isin(months_selected)]
 
     # Fix addresses to match the corrected names
-    table_df.loc[table_df['Meter Number'] == 23220035788, "Resident Address"] = 'Rosewood'
-    table_df.loc[table_df['Meter Number'] == 4293682789, "Resident Address"] = 'NBIC 2' 
+    if not table_df.empty:
+        table_df.loc[table_df['Meter Number'] == 23220035788, "Resident Address"] = 'Rosewood'
+        table_df.loc[table_df['Meter Number'] == 4293682789, "Resident Address"] = 'NBIC 2' 
 
-    mask = (table_df['Resident Address'] == 'C A') & (table_df['Meter Number'] == 4293684496)
-    if not table_df.loc[mask].empty:
-        min_index = table_df.loc[mask, 'Amount'].idxmin()
-        table_df.loc[min_index, 'Resident Address'] = 'Cedar B'
+        mask = (table_df['Resident Address'] == 'C A') & (table_df['Meter Number'] == 4293684496)
+        if not table_df.loc[mask].empty:
+            min_index = table_df.loc[mask, 'Amount'].idxmin()
+            table_df.loc[min_index, 'Resident Address'] = 'Cedar B'
 
-    # Filter by selected location/address (NEW)
+    # Filter by selected location/address
+    table_df['Resident Address'] = table_df['Resident Address'].str.strip()
+    selected_locations = [loc.strip() for loc in selected_locations] if selected_locations else []
+    
     if selected_locations:
         locations_selected = selected_locations if isinstance(selected_locations, list) else [selected_locations]
         table_df = table_df[table_df['Resident Address'].isin(locations_selected)]
@@ -638,7 +545,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
 
     # Normalize subscriber columns list
     columns_to_sum = ['C A', 'DIC', 'NBIC 1', 'NBIC 2', 'HELIUM', 
-                    'Rosewood', 'Bites To Eat [Tuck-shop]', 'Cedar B']
+                     'Rosewood', 'Bites To Eat [Tuck-shop]', 'Cedar B']
 
     # Only sum columns that actually exist
     existing_cols = [c for c in columns_to_sum if c in df_table.columns]
@@ -653,12 +560,10 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
             .sum()
     )
 
-    
-
     gravitas_subs_revenue = subs_sum + gravitas_subscriber
 
     # --- Cost Pie Chart ---
-    filtered_cost = df_cost_2025.copy() 
+    filtered_cost = data['df_cost_2025'].copy() 
     
     # Filter by generator type
     if selected_generators:
@@ -668,15 +573,17 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     if selected_months:
         filtered_cost = filtered_cost[filtered_cost["Month"].isin(selected_months)]
     
-    fig_pie = px.pie(
-        filtered_cost,
-        names='Type of Activity',
-        values='Amount (NGN)',
-        color_discrete_sequence=brand_colors,
-        # title='Cost Breakdown by Activity Type (2025)'
-    )   
-
-    fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+    if not filtered_cost.empty:
+        fig_pie = px.pie(
+            filtered_cost,
+            names='Type of Activity',
+            values='Amount (NGN)',
+            color_discrete_sequence=brand_colors,
+        )   
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+    else:
+        fig_pie = px.pie(title="No cost data available")
+    
     fig_pie.update_layout(
         title=dict(text='💸 Cost Breakdown (2025)', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
         autosize=True,
@@ -686,7 +593,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     )
 
     # --- Fuel Chart (Tab-2) ---
-    filtered_fuel = df_supplied.copy()
+    filtered_fuel = data['df_supplied'].copy()
     if selected_months:
         filtered_fuel = filtered_fuel[filtered_fuel['Month'].isin(selected_months)]
     
@@ -708,7 +615,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
         # Empty chart if no data
         fig_fuel = px.bar(title="No fuel data available")
     
-    # Place legend to the right of the chart and make it smaller so it doesn't overlap bars
+    # Place legend to the right of the chart
     fig_fuel.update_layout(
         title=dict(text='⛽ Fuel Management', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
         autosize=True,
@@ -728,31 +635,30 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     )
 
     # --- Downtime Chart (Tab-2) ---
-    filtered_downtime = df_downTime.copy()
+    filtered_downtime = data['df_downTime'].copy()
 
     if selected_months:
         filtered_downtime = filtered_downtime[filtered_downtime['Month'].isin(selected_months)]
     
-    
-    fig_down = px.bar(
-        filtered_downtime,
-        x="Month",
-        y="Duration_Hours",
-        color="Generator",
-        text_auto=True,
-        barmode="group",
-        color_discrete_sequence=brand_colors,
-        #title="Downtime Duration by Month and Generator"
-    )
-
-    # Set y-axis to log scale
-    fig_down.update_yaxes(type="log")
+    if not filtered_downtime.empty:
+        fig_down = px.bar(
+            filtered_downtime,
+            x="Month",
+            y="Duration_Hours",
+            color="Generator",
+            text_auto=True,
+            barmode="group",
+            color_discrete_sequence=brand_colors,
+        )
+        # Set y-axis to log scale
+        fig_down.update_yaxes(type="log")
+    else:
+        fig_down = px.bar(title="No downtime data available")
 
     # Format layout and move legend clear of the bars (right side)
     fig_down.update_layout(
         title=dict(text='🛠️ Generator Downtime', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
         xaxis_title="Month",
-        #yaxis_title="Total Duration (Hours, log scale)",
         template="plotly_white",
         autosize=True,
         paper_bgcolor='rgba(0,0,0,0)',
@@ -770,12 +676,10 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
         )
     )
 
-
-    
     # --- Stock Chart (Tab-2) with brand colors ---
-    if not df_rc_melt.empty:
+    if not data['df_rc_melt'].empty:
         fig_stock = px.bar(
-            df_rc_melt,
+            data['df_rc_melt'],
             x='Filter_Type',
             y='Units',
             color='Stock_Status',
@@ -786,7 +690,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     else:
         fig_stock = px.bar(title="No stock data available")
     
-    # Move stock legend to the right and reduce its size to avoid overlap
+    # Move stock legend to the right
     fig_stock.update_layout(
         title=dict(text='📦 Stock Inventory', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
         autosize=True,
@@ -806,7 +710,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     )
 
     # --- Runtime Chart (Tab-2) ---
-    filtered_runtime = df_agg.copy()
+    filtered_runtime = data['df_agg'].copy()
 
     if selected_months:
         filtered_runtime = filtered_runtime[filtered_runtime['Month'].isin(selected_months)]
@@ -814,15 +718,17 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     if selected_generators:
         filtered_runtime = filtered_runtime[filtered_runtime['Generator'].isin(selected_generators)]
     
-    fig_runtime = px.pie(
-        filtered_runtime,
-        names="Generator",
-        values="Hours Operated",
-        color_discrete_sequence=brand_colors,
-        hole=0.4
-    )
-
-    fig_runtime.update_traces(textposition="inside", textinfo="percent+label")
+    if not filtered_runtime.empty:
+        fig_runtime = px.pie(
+            filtered_runtime,
+            names="Generator",
+            values="Hours Operated",
+            color_discrete_sequence=brand_colors,
+            hole=0.4
+        )
+        fig_runtime.update_traces(textposition="inside", textinfo="percent+label")
+    else:
+        fig_runtime = px.pie(title="No runtime data available")
 
     # Apply same pie chart styling as Tab-1 cost_pie
     fig_runtime.update_layout(
@@ -834,10 +740,9 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     )
 
     # Calculate Operated Hours and Planned Outage
-    operated_hours = filtered_runtime['Hours Operated'].sum()
+    operated_hours = filtered_runtime['Hours Operated'].sum() if not filtered_runtime.empty else 0
     
     # Calculate total hours available in filtered months
-    # 24 hours/day * number of days in each filtered month
     total_hours_available = 0
     if selected_months:
         filtered_months = selected_months if isinstance(selected_months, list) else [selected_months]
@@ -851,16 +756,21 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
             total_hours_available += days_in_month.get(month, 30) * 24
     else:
         # If no month filter, calculate for all months in data
-        total_hours_available = len(df_agg['Month'].unique()) * 30 * 24
+        total_hours_available = len(data['df_agg']['Month'].unique()) * 30 * 24 if not data['df_agg'].empty else 0
     
     # Planned Outage = Total Available Hours - Operated Hours
     planned_outage = max(0, total_hours_available - operated_hours)
 
+    # Format numeric values for display
+    gravitas_revenue_str = f"₦{gravitas_revenue:,.0f}" if gravitas_revenue > 0 else "₦0"
+    gravitas_subs_revenue_str = f"₦{gravitas_subs_revenue:,.0f}" if gravitas_subs_revenue > 0 else "₦0"
+    operated_hours_str = f"{operated_hours:.0f}h" if operated_hours > 0 else "0h"
+    planned_outage_str = f"{planned_outage:.0f}h" if planned_outage > 0 else "0h"
 
-    return fig_bar, fig_line, table_data, table_columns, gravitas_revenue, gravitas_subs_revenue, operated_hours, planned_outage, fig_pie, fig_fuel, fig_down, fig_stock, fig_runtime
-
-
-
+    return (fig_bar, fig_line, table_data, table_columns, 
+            gravitas_revenue_str, gravitas_subs_revenue_str, 
+            operated_hours_str, planned_outage_str,
+            fig_pie, fig_fuel, fig_down, fig_stock, fig_runtime)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8050))
