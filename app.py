@@ -535,16 +535,16 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     fig_line = px.line(
         filtered_meter,
         x='Month',
-        y='Monthly_Consumption',
+        y='Amount',
         color='Location',
         markers=True,
         color_discrete_sequence=brand_colors
     )
 
     fig_line.update_layout(
-        title=dict(text='⚡ Monthly Consumption Trend', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
+        title=dict(text='⚡ Monthly Consumption Amount Trend', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
         xaxis_title='Month',
-        yaxis_title='Monthly_Consumption',
+        yaxis_title='Amount',
         template="plotly_white",
         showlegend=False,
         width=500,
