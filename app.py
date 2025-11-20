@@ -525,7 +525,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
     
     # --- Bar chart with brand-aligned color palette ---
     # Custom color palette: Gold, Navy, Slate, Cream
-    brand_colors = ['#C7A64F', '#2C3E50', '#34495E', '#F4E4C1', '#E8D5B7']
+    brand_colors = ['#C7A64F', '#2C3E50', "#5E7286", '#F4E4C1', '#E8D5B7']
     
     fig_bar = px.bar(
         filtered_meter,
