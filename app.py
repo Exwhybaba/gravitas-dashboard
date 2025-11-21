@@ -111,9 +111,9 @@ def load_all_data():
 
 
                 ## Power Transaction
-                path2 = "https://docs.google.com/spreadsheets/d/1O-mPctFgp6oqd-VK9YKHyPq-asuve2ZM/export?format=xlsx"
-                df2 = pd.ExcelFile(path2)
-                power_df = df2.parse(6)
+                # path2 = "https://docs.google.com/spreadsheets/d/1O-mPctFgp6oqd-VK9YKHyPq-asuve2ZM/export?format=xlsx"
+                # df2 = pd.ExcelFile(path2)
+                power_df = df.parse(6)
 
                 # Convert Transaction Date to string first to handle mixed types, then to datetime
                 try:
@@ -649,7 +649,7 @@ def update_chart(selected_locations, selected_months, selected_generators, n_int
         local_df_rc_melt = local_df_rc_melt[local_df_rc_melt['Generator_Size'].isin(selected_generators)]
        
     
-    print(local_df_rc_melt)
+
 
     if not local_df_rc_melt.empty:
         fig_stock = px.bar(
