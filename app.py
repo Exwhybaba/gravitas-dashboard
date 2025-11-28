@@ -85,7 +85,7 @@ def load_all_data():
 
                 # Fuel Supplied
                 df_supplied = df.parse(3)
-                df_supplied.drop(index=10, inplace=True, errors='ignore')
+                # df_supplied.drop(index=10, inplace=True, errors='ignore')
 
                 df_supplied['Date'] = pd.to_datetime(df_supplied['Date'])
                 df_supplied['Month'] = df_supplied['Date'].dt.strftime('%B')
