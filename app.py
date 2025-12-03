@@ -659,28 +659,33 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
     if selected_months:
         filtered_fuel = filtered_fuel[filtered_fuel['Month'].isin(selected_months)]
     
-    filtered_fuel['Total Fuel Used'] = pd.to_numeric(filtered_fuel['Total Fuel Used'], errors='coerce')
-    filtered_fuel['Fuel Added (Total)'] = pd.to_numeric(filtered_fuel['Fuel Added (Total)'], errors='coerce')
-    filtered_fuel['Closing Fuel Level']= pd.to_numeric(filtered_fuel['Closing Fuel Level'], errors='coerce')
+    # Convert to numeric safely
+    for col in ['Total Fuel Used', 'Fuel Added (Total)', 'Closing Fuel Level']:
+        filtered_fuel[col] = pd.to_numeric(filtered_fuel[col], errors='coerce')
     
-    filtered_fuel['Total'] = pd.to_numeric(filtered_fuel['Total Fuel Used'], errors='coerce')
-    filtered_fuel['Fuel Level']= pd.to_numeric(filtered_fuel['Closing Fuel Level'], errors='coerce')
-    filtered_fuel = filtered_fuel.dropna(subset=['Total Fuel Used', 'Fuel Added (Total)', 'Fuel Level'])
-    
+    filtered_fuel = filtered_fuel.dropna(subset=['Total Fuel Used', 'Fuel Added (Total)', 'Closing Fuel Level'])
+
     if not filtered_fuel.empty:
         fig_fuel = px.bar(
             filtered_fuel,
             x='Month',
-            y=['Total Fuel Used', 'Fuel Added (Total)', 'Fuel Level'],
+            y=['Total Fuel Used', 'Fuel Added (Total)', 'Closing Fuel Level'],
             barmode='group',
-            labels={'Month': 'Month', 'value': 'Fuel (Litres)'},
-            color_discrete_sequence= brand_colors[:3]
+            labels={'value': 'Litres', 'variable': 'Fuel Metric'},
+            color_discrete_sequence=brand_colors[:3]
+        )
+        
+        # This adds the values inside the bars
+        fig_fuel.update_traces(
+            texttemplate='%{y:.0f}', 
+            textposition='inside',
+            textfont=dict(color='white', size=11)
         )
     else:
         fig_fuel = px.bar(title="No fuel data available")
-    
+
     fig_fuel.update_layout(
-        title=dict(text='⛽ Fuel Management', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
+        title=dict(text='Fuel Management', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
         autosize=True,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -738,7 +743,7 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
         )
     )
 
-   
+
 
 
     # --- Stock Chart (Tab-2) with brand colors ---
@@ -800,6 +805,8 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
             borderwidth=0
         )
     )
+
+
 
     fig_stock.update_xaxes(tickangle=-45)
 
@@ -936,8 +943,8 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
     planned_outage_hours = max(total_hours_in_period - actual_operated_hours, 0)
 
     # Format for display
-    operated_hours_display = f"{actual_operated_hours:,.0f}h"
-    planned_outage_display = f"{planned_outage_hours:,.0f}h"
+    operated_hours_display = f"{actual_operated_hours:,.1f}h"
+    planned_outage_display = f"{planned_outage_hours:,.1f}h"
 
     #Debug print (optional - detailed breakdown)
     # print(f"\n{'='*60}")
