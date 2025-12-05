@@ -140,7 +140,7 @@ load_all_data()
 # Define all location/address options for filtering
 all_locations = sorted(list(set(
     list(df_meter["Location"].unique()) +
-    ['Rosewood', 'Cedar A', 'Tuck-shop', 'Cedar B',
+    ['Rosewood A', 'Rosewood B', 'Cedar A', 'Tuck-shop', 'Cedar B',
      'Head Office', 'Engineering Yard', 'NBIC 2', 'NBIC 1',
      'HELIUM', 'DIC']
 )))
@@ -280,7 +280,7 @@ app.layout = html.Div([
 
     html.Div([
         html.Div([
-            consumpLine
+            transChart           
         ], className="card-1"),
 
         html.Div([
@@ -288,7 +288,7 @@ app.layout = html.Div([
         ], className="card-2"),
 
         html.Div([
-            transChart
+            consumpLine
         ], className="card-3"),
 
         html.Div([
@@ -394,7 +394,7 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
     filtered_meter['Amount'] = filtered_meter['Rate'] * filtered_meter['Monthly_Consumption']
     
     gravitas_partner = round(filtered_meter.loc[
-        filtered_meter['Location'].isin(['9mobile', 'Providus']), "Amount"
+        filtered_meter['Location'].isin(['9mobile', 'Providus', 'Western Lodge']), "Amount"
     ].sum(), 2)
 
     gravitas_subscriber = round(filtered_meter.loc[
@@ -560,18 +560,48 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
         months_selected = selected_months if isinstance(selected_months, list) else [selected_months]
         table_df = table_df[table_df['Month'].isin(months_selected)]
 
-    # Fix addresses
-    table_df.loc[table_df['Meter Number'] == 23220035788, "Resident Address"] = 'Rosewood'
-    table_df.loc[table_df['Meter Number'] == 4293682789, "Resident Address"] = 'NBIC 2' 
 
-    table_df['Resident Address'] = table_df['Resident Address'].replace(['C A','Bites To Eat [Tuck-shop]',
-                                                'Gravitas Head Office', 'Gravitas Engineering Yard', 'HELIUM '],
-                                                ['Cedar A', 'Tuck-shop', 'Head Office', 'Engineering Yard', 'HELIUM'])
+    # Create a mapping dictionary 
+    meter_to_name = {
+        23220035721: "Rosewood A",   
+        23220035788: "Rosewood B",
+        4293684496:  "Cedar A",
+        4293682284:  "Cedar B",       
+        4293683936:  "NBIC 1",
+        4293682789:  "NBIC 2",
+        4293682193:  "Head Office",
+        4293683571:  "Engineering Yard",
+        4293683993:  "HELIUM",
+        4293682201:  "DIC",
+        120230672145: "Tuckshop Water",
+        4293684066: "Tuck-shop"
+    }
+
+    # Now correctly map Meter Number → proper name and fix Resident Address
+    table_df['Resident Address'] = table_df['Meter Number'].map(meter_to_name).fillna(table_df['Resident Address'])
+
+    # Optional: Also create a clean "Meter Name" column (highly recommended)
+    table_df['Meter Name'] = table_df['Meter Number'].map(meter_to_name)
+
+
+    # Now correctly map Meter Number → proper name and fix Resident Address
+    table_df['Paid By'] = table_df['Meter Number'].map(meter_to_name).fillna(table_df['Paid By'])
+
+    # Optional: Also create a clean "Meter Name" column (highly recommended)
+    table_df['Meter Name'] = table_df['Meter Number'].map(meter_to_name)
+
+    # # Fix addresses
+    # table_df.loc[table_df['Meter Number'] == 23220035788, "Resident Address"] = 'Rosewood'
+    # table_df.loc[table_df['Meter Number'] == 4293682789, "Resident Address"] = 'NBIC 2' 
+
+    # table_df['Resident Address'] = table_df['Resident Address'].replace(['C A','Bites To Eat [Tuck-shop]',
+    #                                             'Gravitas Head Office', 'Gravitas Engineering Yard', 'HELIUM '],
+    #                                             ['Cedar A', 'Tuck-shop', 'Head Office', 'Engineering Yard', 'HELIUM'])
     
-    mask = (table_df['Resident Address'] == 'Cedar A') & (table_df['Meter Number'] == 4293684496)
-    if not table_df.loc[mask].empty:
-        min_index = table_df.loc[mask, 'Amount'].idxmin()
-        table_df.loc[min_index, 'Resident Address'] = 'Cedar B'
+    # mask = (table_df['Resident Address'] == 'Cedar A') & (table_df['Meter Number'] == 4293684496)
+    # if not table_df.loc[mask].empty:
+    #     min_index = table_df.loc[mask, 'Amount'].idxmin()
+    #     table_df.loc[min_index, 'Resident Address'] = 'Cedar B'
 
     # Filter by selected location/address
     if selected_locations:
@@ -602,6 +632,8 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
 
     df_table = pd.DataFrame(pivot.to_dict('records'))
 
+    
+
     # --- Gravitas Partner Revenue ---
     def safe_sum(col):
         if col in df_table.columns:
@@ -618,7 +650,7 @@ def update_chart(selected_locations, selected_months, selected_generators, selec
     df_table.columns = df_table.columns.str.strip().str.replace('\u00A0', '', regex=True)
 
     columns_to_sum = ['Cedar A', 'DIC', 'NBIC 1', 'NBIC 2', 'HELIUM', 
-                    'Rosewood', 'Tuck-shop', 'Cedar B']
+                    'Rosewood A', 'Rosewood B', 'Tuck-shop', 'Cedar B' ]
 
     existing_cols = [c for c in columns_to_sum if c in df_table.columns]
 
