@@ -12,6 +12,8 @@ import calendar
 from collections import Counter
 import threading
 from datetime import datetime, timedelta
+import sys
+import webbrowser
 
 warnings.filterwarnings('ignore')
 
@@ -68,6 +70,10 @@ def load_all_data():
                 df_cost['Generator'].replace(['new 80kva', 'both 80kva', 'old 80kva', 'new 200kva', '55Kva'],
                                          ['80kva', '80kva', '80kva',  '200kva', '55kva' ], inplace= True)
 
+                # Normalize generator names to lowercase to ensure matching (e.g. '80KVA' -> '80kva')
+                if 'Generator' in df_cost.columns:
+                    df_cost['Generator'] = df_cost['Generator'].astype(str).str.strip().str.lower()
+
                 if 'Year' in df_cost.columns:
                     df_cost['Year'] = df_cost['Year'].astype(str).str.replace(r'\.0', '', regex=True)
                 elif 'Date' in df_cost.columns:
@@ -90,6 +96,10 @@ def load_all_data():
                 df_downTime = df.parse(2)
                 df_downTime = df_downTime.sort_values(by='Duration_Hours', ascending=False)
                 df_downTime['Generator'] = df_downTime['Generator'].replace('88kva', '80kva')
+
+                # Normalize generator names
+                if 'Generator' in df_downTime.columns:
+                    df_downTime['Generator'] = df_downTime['Generator'].astype(str).str.strip().str.lower()
 
                 if 'Year' in df_downTime.columns:
                     df_downTime['Year'] = df_downTime['Year'].astype(str).str.replace(r'\.0', '', regex=True)
@@ -131,6 +141,11 @@ def load_all_data():
                     run_time['Day'] = run_time['Date'].dt.strftime('%A')
                     
                 run_time['Generator'].replace(['20KVA', '200KVA', '80KVA', '55KVA'], ['20kva', '200kva', '80kva', '55kva'], inplace = True)
+                
+                # Normalize generator names
+                if 'Generator' in run_time.columns:
+                    run_time['Generator'] = run_time['Generator'].astype(str).str.strip().str.lower()
+
                 df_agg = run_time.groupby(['Year', 'Month', 'Generator'], as_index=False)['Hours Operated'].sum()
                 df_agg['Month'] = pd.Categorical(df_agg['Month'], categories=month_order, ordered=True)
                 df_agg = df_agg.sort_values(by='Month')
@@ -162,6 +177,10 @@ def load_all_data():
                     df_stock['Date_Obj'] = pd.to_datetime(df_stock['Month'])
                     df_stock['Month'] = df_stock['Date_Obj'].dt.strftime('%B')
                     df_stock['Year'] = df_stock['Date_Obj'].dt.strftime('%Y')
+                
+                if 'Generator_Size' in df_stock.columns:
+                    df_stock['Generator_Size'] = df_stock['Generator_Size'].astype(str).str.strip().str.lower()
+
                 df_rc_melt = df_stock.copy()
 
                 # --- Power Transaction ---
@@ -314,7 +333,15 @@ transChart = dcc.Graph(id='trans_chart', className='trans-chart', config={"respo
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
 
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+# Determine assets folder path based on whether running as source or frozen executable
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable (PyInstaller unpacks to sys._MEIPASS)
+    assets_folder = os.path.join(sys._MEIPASS, 'assets')
+else:
+    # Running from source
+    assets_folder = 'assets'
+
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder=assets_folder)
 server = app.server
 app.config.suppress_callback_exceptions = True
 
@@ -538,13 +565,12 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
     # --- Brand Colors ---
     GRACEFIELD_GOLD     = "#C7A64F"
     GRACEFIELD_DARK     = "#2C3E50"
-    GRACEFIELD_BLUE     = "#34495E"
+    GRACEFIELD_Green     = "#166347"
     GRACEFIELD_SKY      = "#4A90E2"
     GRACEFIELD_ORANGE   = "#E67E22"
-    GRACEFIELD_PALE     = "#F4E4C1"
-    GRACEFIELD_BEIGE    = "#E8D5B7"
+   
 
-    brand_colors = [GRACEFIELD_GOLD, GRACEFIELD_DARK, GRACEFIELD_SKY, GRACEFIELD_ORANGE]
+    brand_colors = [GRACEFIELD_Green, GRACEFIELD_GOLD, GRACEFIELD_DARK, GRACEFIELD_SKY, GRACEFIELD_ORANGE]
     
     # === Revenue & Cost Calculation ===
     revenue_from_trans = local_power_df.copy()
@@ -1364,4 +1390,11 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
     )
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Check if running as standalone executable
+    if getattr(sys, 'frozen', False):
+        # Open browser automatically in a separate thread
+        threading.Timer(1.5, lambda: webbrowser.open("http://127.0.0.1:8050")).start()
+        app.run(debug=False, port=8050)
+    else:
+        port = int(os.environ.get("PORT", 8050))
+        app.run(debug=True, host='0.0.0.0', port=port)
