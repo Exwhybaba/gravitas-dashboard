@@ -5,3 +5,5 @@
 !/app.py
 !/assets/
 !/.gitignore
+!/requirements.txt
+!/Dockerfile
