@@ -13,3 +13,8 @@ env/
 venv/ts.txt
 !/Dockerfile
 myenv/
+# Build artifacts
+build/
+dist/
+*.exe
+*.pkg
