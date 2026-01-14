@@ -934,6 +934,12 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         },
         labels={'Cost': 'Amount (₦)'})
     
+    fig_cost_bar.update_layout(
+    bargap=0.15,        # space between bars (0 = no space)
+    bargroupgap=0.05    # space between grouped bars
+    )
+
+    
     subs_sum = (
         df_table[existing_cols]
             .replace('-', 0)
@@ -1399,4 +1405,3 @@ if __name__ == "__main__":
         port = int(os.environ.get("PORT", 8050))
         app.run(debug=True, host='0.0.0.0', port=port)
         # app.run(debug=True, port=port)
-    
