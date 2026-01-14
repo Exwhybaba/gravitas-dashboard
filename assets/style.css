@@ -1,0 +1,424 @@
+/* Ensure consistent fonts in Docker */
+* {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+                 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 
+                 'Helvetica Neue', sans-serif !important;
+}
+
+/* Force consistent box sizing */
+html {
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
+/* Ensure charts render consistently */
+.js-plotly-plot .plotly, 
+.js-plotly-plot .plotly div {
+    direction: ltr;
+    font-family: 'Open Sans', verdana, arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.app-grid {
+  display: grid;
+  height: 100vh;                     /* full viewport height */
+  width: 100%;                       /* avoid 100vw issues with scrollbars */
+  gap: 0;
+  grid-template-columns: 1.3fr 6.2fr;
+  grid-template-rows: auto 1fr;      /* header takes natural height, section takes remaining */
+  grid-template-areas:
+    "sidebar header"
+    "sidebar section";
+  box-sizing: border-box;
+  overflow: hidden;                  /* prevent page-level double scrollbar */
+}
+
+.sidebar {
+    grid-area: sidebar;
+    background-color: rgb(255, 255, 255);
+    margin: 2rem  2rem 2rem 2rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* smoother scrolling on mobile */
+    
+}
+
+/* Content area below the header */
+.section {
+    grid-area: section;
+   
+
+}
+
+.header {
+    grid-area: header;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    margin: 0;
+    background: #F9F7F4;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 0.2rem 1rem;
+    border-bottom: solid 2px #C7A64F;
+    gap: 1.2rem;
+    width: 100%;
+    flex-shrink: 0;
+    overflow: hidden; /* Prevent header overflow */
+}
+
+/* .kpi-card {
+    background: #f7f9fc;
+    border-radius: 14px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 260px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+} */
+
+.kpi-card{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.kpi-icon {
+    font-size: 40px;
+}
+
+.kpi-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.kpi-label {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kpi-value {
+    margin: 4px 0 0 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #2C3E50;
+    margin: 0;
+}
+/* Sidebar control (dropdowns / buttons) - default spacing */
+.sidebar-control {
+  width: 90%;
+  margin: 6px 0 6px 0;
+  font-size: 14px;
+  max-width: 260px;
+}
+
+
+
+/* Tab buttons */
+.tab-btn {
+    background-color: #F4E4C1;
+    border: 1px solid #C7A64F;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    color: #2C3E50;
+    margin-right: 1rem;
+    box-shadow: 0 2px 4px rgba(199, 166, 79, 0.15);
+}
+
+.tab-btn:hover {
+    background-color: #E8D5B7;
+    border-color: #C7A64F;
+    box-shadow: 0 4px 8px rgba(199, 166, 79, 0.25);
+}
+
+.active-tab {
+    background-color: #C7A64F;
+    color: #ffffff;
+    border-color: #C7A64F;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(199, 166, 79, 0.3);
+}
+
+    /* Soft shadow below the header
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15)
+} */
+
+
+
+
+.logo {
+    height: 15%;
+    width: auto;
+    margin-left: 10%;
+}
+
+.section {
+    grid-area: section;
+    background-color: #F9F7F4;
+    margin: -2px;
+    padding: 1rem 0.5rem 2rem 0.5rem; /* increased bottom padding for viewport spacing */
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    overflow: auto;   
+    gap: 0.2rem;
+    align-items: flex-start; /* Add this */
+    min-width: 0;
+    height: 97%; /* Adjust to content */
+}
+
+
+/* Ensure cards maintain their layout */
+.card-1, .card-2, .card-3, .card-4, .card-5 {
+    flex-shrink: 0; /* Prevent cards from shrinking */
+    min-width: 0; /* Allow content to shrink within flex container */
+}
+
+
+/* ---------- CARD ---------- */
+.card-1, .card-2, .card-3, .card-4, .card-5 {
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(199, 166, 79, 0.08);
+  padding: 1.5rem;
+  margin: 0.2rem;
+  margin-top: 0;
+  text-align: center;
+  transition: all 0.3s ease;
+  border: 1px solid #E8D5B7;
+  position: relative;
+
+  /* layout & sizing */
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Two-column desktop layout: primary cards wider (60%) and secondary cards narrower (38%) */
+.card-1, .card-3 {
+  flex: 1 1 50%;          /* grow | shrink | basis */
+  max-width: 50%;
+  min-width: 260px;
+  box-sizing: border-box;
+}
+
+.card-4, .card-5 {
+  flex: 1 1 47%;
+  max-width: 47%;
+  min-width: 240px;
+  box-sizing: border-box;
+}
+
+
+.card-2{
+  flex: 1 1 60%;
+  min-width: 60%;
+  max-width: 98%;
+  box-sizing: border-box;
+}
+
+.card-3 {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(199, 166, 79, 0.08);
+    padding: 1rem;
+    margin: 0.2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 1px solid #E8D5B7;
+    overflow: hidden;
+}
+
+.card-1, .card-2, .card-3, .card-4, .card-5 {
+    height: 43vh; /* 30% of the viewport height */
+    min-height: 220px; /* don't get too small */
+    max-height: 400px; /* optional upper limit */
+}
+
+
+#transactions_table {
+    flex: 1; /* take remaining space in card */
+    overflow-y: auto; /* enable vertical scroll */
+    width: 100%;
+}
+
+.card-1:hover, .card-2:hover, .card-3:hover, .card-4:hover, .card-5:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 6px 15px rgba(199, 166, 79, 0.25);
+}
+
+.card-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #222;
+  margin: 0.3rem 0;
+}
+
+.card-desc {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+/* Remove extra top spacing directly under the header
+.section > *:first-child,
+section > *:first-child {
+  margin-top: 0;
+} */
+
+/* Normalize heading top margins within sections */
+.section h1, .section h2, .section h3,
+section h1, section h2, section h3 {
+  margin-top: 0;
+}
+/* Responsive rules removed as requested - desktop styles preserved */
+
+
+
+/* .consumption-chart, .consumption-line, .cost-pie, 
+.fuel-chart, .downtime-chart, .stock-chart, .runtime-chart {
+    width: 100% !important;
+    height: 100% !important;
+} */
+
+/* Specifically for pie charts */
+.cost-pie, .runtime-chart {
+    height: 280px !important;
+    max-height: 280px !important;
+}
+
+
+
+
+
+/* Add media queries for smaller screens */
+@media (max-width: 1400px) {
+    .card-1, .card-3 {
+        width: 550px;
+    }
+    .card-2, .card-4 {
+        width: 450px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .app-grid {
+        grid-template-columns: 1.5fr 5fr;
+    }
+    .card-1, .card-2, .card-3, .card-4 {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+/* Add extra bottom space for specific bottom-row cards so they don't touch viewport edge */
+#tab-1 .card-2,
+#tab-2 .card-3,
+#tab-2 .card-4 {
+  margin-bottom: 1.25rem;
+}
+
+/* Stack to single column on narrower viewports */
+@media (max-width: 1000px) {
+  .card-1, .card-2, .card-3, .card-4 {
+    flex: 1 1 100%;
+    max-width: 100%;
+    height: auto;         /* let content determine height on mobile */
+    min-height: 220px;
+  }
+}
+
+/* Add these to your existing CSS file */
+
+.sidebar-toggle-js {
+  display: none !important;
+  font-size: 20px !important;
+  background: #F4E4C1 !important;
+  border: 1px solid #C7A64F !important;
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  color: #2C3E50 !important;
+  margin-right: 15px !important;
+  position: absolute !important;
+  left: 15px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 3000 !important;
+}
+
+/* Mobile Styles */
+@media (max-width: 992px) {
+  .sidebar-toggle-js { 
+    display: block !important; 
+  }
+  
+  .sidebar {
+    position: fixed !important;
+    z-index: 2000 !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 280px !important;
+    height: 100vh !important;
+    background: white !important;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1) !important;
+    transform: translateX(0) !important;
+    transition: transform 0.3s ease-in-out !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+  }
+  
+  .sidebar.collapsed {
+    transform: translateX(-100%) !important;
+    box-shadow: none !important;
+  }
+  
+  /* Adjust grid when sidebar collapses */
+  .app-grid {
+    grid-template-columns: 0fr 1fr !important;
+    transition: grid-template-columns 0.3s ease-in-out !important;
+  }
+  
+  /* Ensure header content doesn't get hidden by toggle button */
+  .header {
+    position: relative !important;
+    padding-left: 60px !important;
+  }
+}
+
+/* Hide toggle on desktop */
+@media (min-width: 993px) {
+  .sidebar-toggle-js { 
+    display: none !important; 
+  }
+  
+  .sidebar.collapsed {
+    transform: none !important;
+  }
+}
