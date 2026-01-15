@@ -15,32 +15,37 @@ from datetime import datetime, timedelta
 import sys
 import webbrowser
 
+
 warnings.filterwarnings('ignore')
+
 
 # --- Global Variables ---
 data_lock = threading.Lock()
 last_refresh_time = None
 REFRESH_INTERVAL = 300  # 5 minutes in seconds
 
+
 def load_all_data():
     """Load and process data from Google Sheets with thread safety."""
     global df_meter, df_cost, df_cost_2025, df_downTime, run_time, df_agg
     global df_supplied, df_stock, df_rc, df_rc_melt, power_df, last_refresh_time
-    
+   
     with data_lock:
         try:
             # Check if we need to refresh (5-minute interval)
             current_time = datetime.now()
-            if (last_refresh_time is None or 
+            if (last_refresh_time is None or
                 (current_time - last_refresh_time).total_seconds() >= REFRESH_INTERVAL):
-                
+               
                 print("Refreshing data from source...")
-                
+               
                 url = "https://docs.google.com/spreadsheets/d/1LfdWF1pzfC8PGwD-pMgzHw8JIZtll74W8-39vNsKgGA/edit?usp=sharing"
+
 
                 sheet_id = "1LfdWF1pzfC8PGwD-pMgzHw8JIZtll74W8-39vNsKgGA"
                 excel_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
                 df = pd.ExcelFile(excel_url)
+
 
                 # --- Meter Data ---
                 df_meter = df.parse(0)
@@ -49,16 +54,19 @@ def load_all_data():
                     df_meter['Total Revenue'] = df_meter['Total Revenue'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
                     df_meter['Total Revenue'] = pd.to_numeric(df_meter['Total Revenue'], errors='coerce').fillna(0)
 
+
                 if 'Year' in df_meter.columns:
                     df_meter['Year'] = df_meter['Year'].astype(str).str.replace(r'\.0', '', regex=True)
                 elif 'Date' in df_meter.columns:
                     df_meter['Date'] = pd.to_datetime(df_meter['Date'])
                     df_meter['Year'] = df_meter['Date'].dt.strftime('%Y')
 
+
                 month_order = ["January","February","March","April","May","June","July","August","September","October","November","December"]
                 if 'Month' in df_meter.columns:
                     df_meter['Month'] = df_meter['Month'].astype(str).str.strip()
                 df_meter['Month'] = pd.Categorical(df_meter['Month'], categories=month_order, ordered=True)
+
 
                 # --- Cost Breakdown ---
                 df_cost = df.parse(1)
@@ -67,19 +75,22 @@ def load_all_data():
                     df_cost['Amount (NGN)'] = df_cost['Amount (NGN)'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
                     df_cost['Amount (NGN)'] = pd.to_numeric(df_cost['Amount (NGN)'], errors='coerce').fillna(0)
 
+
                 df_cost['Generator'].replace(['new 80kva', 'both 80kva', 'old 80kva', 'new 200kva', '55Kva'],
                                          ['80kva', '80kva', '80kva',  '200kva', '55kva' ], inplace= True)
+
 
                 # Normalize generator names to lowercase to ensure matching (e.g. '80KVA' -> '80kva')
                 if 'Generator' in df_cost.columns:
                     df_cost['Generator'] = df_cost['Generator'].astype(str).str.strip().str.lower()
+
 
                 if 'Year' in df_cost.columns:
                     df_cost['Year'] = df_cost['Year'].astype(str).str.replace(r'\.0', '', regex=True)
                 elif 'Date' in df_cost.columns:
                     df_cost['Date'] = pd.to_datetime(df_cost['Date'])
                     df_cost['Year'] = df_cost['Date'].dt.strftime('%Y')
-                
+               
                 if 'Month' in df_cost.columns:
                     df_cost['Month'] = df_cost['Month'].astype(str).str.strip()
                 elif 'Date' in df_cost.columns:
@@ -87,30 +98,35 @@ def load_all_data():
                         df_cost['Date'] = pd.to_datetime(df_cost['Date'])
                     df_cost['Month'] = df_cost['Date'].dt.strftime('%B')
 
+
                 df_cost.drop(columns=['id'], inplace=True, errors='ignore')
                 df_cost.reset_index(drop= True, inplace=True)
-                
+               
                 df_cost_2025 = df_cost.copy()
+
 
                 # --- Downtime ---
                 df_downTime = df.parse(2)
                 df_downTime = df_downTime.sort_values(by='Duration_Hours', ascending=False)
                 df_downTime['Generator'] = df_downTime['Generator'].replace('88kva', '80kva')
 
+
                 # Normalize generator names
                 if 'Generator' in df_downTime.columns:
                     df_downTime['Generator'] = df_downTime['Generator'].astype(str).str.strip().str.lower()
+
 
                 if 'Year' in df_downTime.columns:
                     df_downTime['Year'] = df_downTime['Year'].astype(str).str.replace(r'\.0', '', regex=True)
                 elif 'Date' in df_downTime.columns:
                     df_downTime['Date'] = pd.to_datetime(df_downTime['Date'], errors='coerce')
                     df_downTime['Year'] = df_downTime['Date'].dt.strftime('%Y')
-                
+               
                 if 'Month' in df_downTime.columns:
                     df_downTime['Month'] = df_downTime['Month'].astype(str).str.strip()
                 elif 'Date' in df_downTime.columns:
                      df_downTime['Month'] = df_downTime['Date'].dt.strftime('%B')
+
 
                 df_downTime["Month"] = pd.Categorical(
                     df_downTime["Month"],
@@ -120,6 +136,7 @@ def load_all_data():
                 group_cols = ["Year", "Month", "Generator"] if 'Year' in df_downTime.columns else ["Month", "Generator"]
                 df_downTime = df_downTime.groupby(group_cols, as_index=False)["Duration_Hours"].sum()
 
+
                 # --- Runtime ---
                 run_time = df.parse(4)
                 if 'Year' in run_time.columns:
@@ -127,37 +144,41 @@ def load_all_data():
                 elif 'Date' in run_time.columns:
                     run_time['Date'] = pd.to_datetime(run_time['Date'])
                     run_time['Year'] = run_time['Date'].dt.strftime('%Y')
-                
+               
                 if 'Month' in run_time.columns:
                     run_time['Month'] = run_time['Month'].astype(str).str.strip()
                 elif 'Date' in run_time.columns:
                     if run_time['Date'].dtype == object:
                         run_time['Date'] = pd.to_datetime(run_time['Date'])
                     run_time['Month'] = run_time['Date'].dt.strftime('%B')
-                
+               
                 if 'Day' not in run_time.columns and 'Date' in run_time.columns:
                     if run_time['Date'].dtype == object:
                         run_time['Date'] = pd.to_datetime(run_time['Date'])
                     run_time['Day'] = run_time['Date'].dt.strftime('%A')
-                    
+                   
                 run_time['Generator'].replace(['20KVA', '200KVA', '80KVA', '55KVA'], ['20kva', '200kva', '80kva', '55kva'], inplace = True)
-                
+               
                 # Normalize generator names
                 if 'Generator' in run_time.columns:
                     run_time['Generator'] = run_time['Generator'].astype(str).str.strip().str.lower()
+
 
                 df_agg = run_time.groupby(['Year', 'Month', 'Generator'], as_index=False)['Hours Operated'].sum()
                 df_agg['Month'] = pd.Categorical(df_agg['Month'], categories=month_order, ordered=True)
                 df_agg = df_agg.sort_values(by='Month')
 
+
                 # --- Fuel Supplied ---
                 df_supplied = df.parse(3)
+
 
                 if 'Year' in df_supplied.columns:
                     df_supplied['Year'] = df_supplied['Year'].astype(str).str.replace(r'\.0', '', regex=True)
                 elif 'Date' in df_supplied.columns:
                     df_supplied['Date'] = pd.to_datetime(df_supplied['Date'])
                     df_supplied['Year'] = df_supplied['Date'].dt.strftime('%Y')
+
 
                 if 'Month' in df_supplied.columns:
                     df_supplied['Month'] = df_supplied['Month'].astype(str).str.strip()
@@ -166,7 +187,8 @@ def load_all_data():
                         df_supplied['Date'] = pd.to_datetime(df_supplied['Date'])
                     df_supplied['Month'] = df_supplied['Date'].dt.strftime('%B')
 
-                
+
+               
                 # --- Stock ---
                 df_stock = df.parse(5)
                 if 'Year' in df_stock.columns:
@@ -177,11 +199,13 @@ def load_all_data():
                     df_stock['Date_Obj'] = pd.to_datetime(df_stock['Month'])
                     df_stock['Month'] = df_stock['Date_Obj'].dt.strftime('%B')
                     df_stock['Year'] = df_stock['Date_Obj'].dt.strftime('%Y')
-                
+               
                 if 'Generator_Size' in df_stock.columns:
                     df_stock['Generator_Size'] = df_stock['Generator_Size'].astype(str).str.strip().str.lower()
 
+
                 df_rc_melt = df_stock.copy()
+
 
                 # --- Power Transaction ---
                 power_df = df.parse(6)
@@ -190,17 +214,19 @@ def load_all_data():
                     power_df['Amount'] = power_df['Amount'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
                     power_df['Amount'] = pd.to_numeric(power_df['Amount'], errors='coerce').fillna(0)
 
+
                 try:
                     power_df['Transaction Date'] = power_df['Transaction Date'].astype(str)
                     power_df['Transaction Date'] = pd.to_datetime(power_df['Transaction Date'], dayfirst=True, errors='coerce')
-                    
+                   
                     if not pd.api.types.is_datetime64_any_dtype(power_df['Transaction Date']):
                         power_df['Transaction Date'] = power_df['Transaction Date'].astype(str)
                         power_df['Transaction Date'] = pd.to_datetime(power_df['Transaction Date'], dayfirst=True, errors='coerce')
-                    
+                   
                     power_df = power_df.dropna(subset=['Transaction Date'])
                 except Exception:
                     pass
+
 
                 # Extract month name for easier filtering in callback (keep all months)
                 if 'Year' in power_df.columns:
@@ -208,21 +234,26 @@ def load_all_data():
                 elif 'Transaction Date' in power_df.columns:
                     power_df['Year'] = power_df['Transaction Date'].dt.strftime('%Y')
 
+
                 if 'Month' not in power_df.columns and 'Transaction Date' in power_df.columns:
                     power_df['Month'] = power_df['Transaction Date'].dt.strftime('%B')
 
+
                 power_df.reset_index(drop=True, inplace=True)
-                
+               
                 last_refresh_time = current_time
                 print("Data refresh completed successfully")
-                
+               
         except Exception as e:
-            print(f"Error refreshing data: {e}") 
+            print(f"Error refreshing data: {e}")
+
 
 # Initial data load
 load_all_data()
 
+
 # --- Interactivity Components ---
+
 
 # Define subscriber and gravitas locations
 subscriber_locations = [
@@ -239,12 +270,15 @@ subscriber_locations = [
     'Western Lodge'
 ]
 
+
 gravitas_revenue_sources = [
     'Gravitas New Meter',
     'Engineering Yard',
     'Providus',
     '9mobile'
 ]
+
+
 
 
 # Location filter
@@ -257,6 +291,7 @@ metr_loc = dcc.Dropdown(
         style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
     )
 
+
 # Year filter
 available_years = sorted(df_cost['Year'].unique(), reverse=True)
 year_dropdown = dcc.Dropdown(
@@ -268,6 +303,7 @@ year_dropdown = dcc.Dropdown(
     style={'width': '90%', 'marginTop': '10px', "marginLeft": "5%"}
 )
 
+
 # Month filter
 mtr_month = dcc.Dropdown(
         id='month_filter',
@@ -278,12 +314,17 @@ mtr_month = dcc.Dropdown(
         style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
     )
 
+
 # Generator dropdown (safe sort)
 gens = run_time['Generator'].dropna().astype(str).unique().tolist()
 gens = sorted(gens, key=lambda x: x.lower())  # case-insensitive sort
 
 
+
+
 filter = df_rc_melt['Filter_Type'].unique().tolist()
+
+
 
 
 gen_dropdown = dcc.Dropdown(
@@ -295,6 +336,7 @@ gen_dropdown = dcc.Dropdown(
     style={'width': '90%', 'marginTop': '30%', "marginLeft": "5%"}
 )
 
+
 filter_dropdown = dcc.Dropdown(
     id='filter_type',
     options=[{"label": fil, "value": fil} for fil in filter],
@@ -305,32 +347,43 @@ filter_dropdown = dcc.Dropdown(
 )
 
 
+
+
 # Graph components
 revCostChart = dcc.Graph(id='revenue_cost_chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"}, className='consumption-chart')
 
+
 consumpLine = dcc.Graph(id='consumption_line', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"}, className='consumption-line')
+
 
 costChart = dcc.Graph(id='cost_chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"}, className='cost-chart')
 costPie = dcc.Graph(id='cost_pie', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"}, className='cost-pie')
 
+
 fuelChart = dcc.Graph(id='fuel_chart', className='fuel-chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
+
 
 downtimeChart = dcc.Graph(id='downtime_chart', className='downtime-chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
 
+
 stockChart = dcc.Graph(id='stock_chart', className='stock-chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
+
 
 runtimeChart = dcc.Graph(id='runtime_chart', className='runtime-chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
 
+
 transChart = dcc.Graph(id='trans_chart', className='trans-chart', config={"responsive": True},
     style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
+
+
 
 
 # Determine assets folder path based on whether running as source or frozen executable
@@ -341,14 +394,16 @@ else:
     # Running from source
     assets_folder = 'assets'
 
+
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder=assets_folder)
 server = app.server
 app.config.suppress_callback_exceptions = True
 
+
 # --- App Layout ---
 app.layout = html.Div([
     html.Meta(name='viewport', content='width=device-width, initial-scale=1.0'),
-    
+   
     # Sidebar
     html.Div([
         html.Img(
@@ -358,20 +413,21 @@ app.layout = html.Div([
         ),
         year_dropdown,
         mtr_month,
-        metr_loc, 
+        metr_loc,
         gen_dropdown,
         html.Div([filter_dropdown], id='filter-dropdown-container'),
-        html.Button("Power Analytics", id="tab1-btn", className="tab-btn active-tab", 
+        html.Button("Power Analytics", id="tab1-btn", className="tab-btn active-tab",
                    style={"marginLeft": "1.5rem", "marginTop": "4rem"}),
         html.Button("Operations", id="tab2-btn", className="tab-btn",
                    style={"marginLeft": "1.5rem", "marginTop": "4rem"})
     ], id="sidebar", className="sidebar"),
-    
+   
     # Main Content
     html.Div([
         # Header section for KPIs
         html.Div([
             html.H2("Power Dashboard", className="title", style={'textAlign': 'left'}),
+
 
             # KPIs  
             html.Div([
@@ -382,6 +438,7 @@ app.layout = html.Div([
                 ], className="kpi-text")
             ], className="kpi-card"),
 
+
             html.Div([
                 html.Div("⏱️", className="kpi-icon"),
                 html.Div([
@@ -389,6 +446,7 @@ app.layout = html.Div([
                     html.H3(id="operated_hours", className="kpi-value")
                 ], className="kpi-text")
             ], className="kpi-card"),
+
 
             html.Div([
                 html.Div("⏸️", className="kpi-icon"),
@@ -398,6 +456,7 @@ app.layout = html.Div([
                 ], className="kpi-text")
             ], className="kpi-card"),
 
+
             html.Div([
                 html.Div("🧾", className="kpi-icon"),
                 html.Div([
@@ -405,6 +464,7 @@ app.layout = html.Div([
                     html.H3(id="total_cost_kpi", className="kpi-value")
                 ], className="kpi-text")
             ], className="kpi-card"),
+
 
             html.Div([
                 html.Div("📈", className="kpi-icon"),
@@ -415,12 +475,14 @@ app.layout = html.Div([
             ], className="kpi-card"),
         ], className="header", style={'display': 'flex', 'gap': '20px', 'alignItems': 'center', 'flexWrap': 'wrap'}),
 
+
         # Tab 1: Power Analytics
         html.Div([
             html.Div([transChart], className="card-1"),
             html.Div([costChart], className="card-4"),
             html.Div([revCostChart], className="card-2"),
         ], id="tab-1", className="section"),
+
 
         # Tab 2: Operations
         html.Div([
@@ -434,10 +496,13 @@ app.layout = html.Div([
             ], className="card-3"),
             html.Div([downtimeChart], className="card-4"),
         ], id="tab-2", className="section", style={"display": "none"}),
-        
+       
         dcc.Interval(id='data-refresh-interval', interval=300000, n_intervals=0),
     ], className="main-content")
 ], className="app-grid")
+
+
+
 
 
 
@@ -461,13 +526,14 @@ def switch_tabs(tab1_clicks, tab2_clicks):
     if not ctx.triggered:
         # Initial load: show tab-1
         return {'display': 'flex'}, {'display': 'none'}, 'tab-btn active-tab', 'tab-btn', {'display': 'none'}
-    
+   
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
+   
     if button_id == 'tab2-btn':
         return {'display': 'none'}, {'display': 'flex'}, 'tab-btn', 'tab-btn active-tab', {'display': 'block'}
     else:
         return {'display': 'flex'}, {'display': 'none'}, 'tab-btn active-tab', 'tab-btn', {'display': 'none'}
+
 
 @app.callback(
     [
@@ -498,7 +564,7 @@ def switch_tabs(tab1_clicks, tab2_clicks):
 def update_chart(selected_locations, selected_months, selected_years, selected_generators, selected_filter, n_intervals):
     # Ensure data is fresh
     load_all_data()
-    
+   
     # Create thread-safe copies of the data for this callback
     with data_lock:
         local_df_meter = df_meter.copy()
@@ -510,7 +576,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         local_df_agg = df_agg.copy()
         local_df_cost = df_cost.copy()
         local_run_time = run_time.copy()
-        
+       
     # === Apply Year Filter ===
     if selected_years:
         # Filter all dataframes by selected years
@@ -529,6 +595,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         if 'Year' in local_df_meter.columns:
             local_df_meter = local_df_meter[local_df_meter['Year'].isin(selected_years)]
 
+
     meter_to_name = {
         23220035721: "Rosewood A",
         23220035788: "Rosewood B",
@@ -543,25 +610,29 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         120230672145: "Tuckshop Water",
         4293684066: "Tuck-shop"
     }
-        
+       
     filtered_meter = local_df_meter.copy()
+
 
     if selected_locations:
         filtered_meter = filtered_meter[filtered_meter["Location"].isin(selected_locations)]
 
+
     if selected_months:
         filtered_meter = filtered_meter[filtered_meter["Month"].isin(selected_months)]
 
+
     filtered_meter['Total Revenue'] = pd.to_numeric(filtered_meter['Total Revenue'], errors='coerce').fillna(0)
-    
+   
     gravitas_partner = round(filtered_meter.loc[
         filtered_meter['Location'].isin(['9mobile', 'Providus', 'Western Lodge']), "Total Revenue"
     ].sum(), 2)
 
+
     gravitas_subscriber = round(filtered_meter.loc[
         filtered_meter['Location'] == 'Canteen', "Total Revenue"
     ].sum(), 2)
-    
+   
     # --- Brand Colors ---
     GRACEFIELD_GOLD     = "#C7A64F"
     GRACEFIELD_DARK     = "#2C3E50"
@@ -570,39 +641,43 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
     GRACEFIELD_ORANGE   = "#E67E22"
    
 
+
     brand_colors = [GRACEFIELD_Green, GRACEFIELD_GOLD, GRACEFIELD_DARK, GRACEFIELD_SKY, GRACEFIELD_ORANGE]
-    
+   
     # === Revenue & Cost Calculation ===
     revenue_from_trans = local_power_df.copy()
     revenue_from_trans['Amount'] = pd.to_numeric(revenue_from_trans['Amount'], errors='coerce').fillna(0)
-    
+   
     # Apply year and month filters to transaction data
     if selected_years:
         revenue_from_trans = revenue_from_trans[revenue_from_trans['Year'].isin(selected_years)]
     if selected_months:
         revenue_from_trans = revenue_from_trans[revenue_from_trans['Month'].isin(selected_months)]
-    
+   
     monthly_revenue = revenue_from_trans.groupby('Month')['Amount'].sum().reset_index()
     monthly_revenue.columns = ['Month', 'Revenue']
+
 
     # Add meter revenue to transaction revenue
     meter_rev_df = local_df_meter.copy()
     meter_rev_df['Total Revenue'] = pd.to_numeric(meter_rev_df['Total Revenue'], errors='coerce').fillna(0)
-    
+   
     # Apply year and month filters to meter data
     if selected_years:
         meter_rev_df = meter_rev_df[meter_rev_df['Year'].isin(selected_years)]
     if selected_months:
         meter_rev_df = meter_rev_df[meter_rev_df['Month'].isin(selected_months)]
-    
+   
     monthly_meter_revenue = meter_rev_df.groupby('Month')['Total Revenue'].sum().reset_index()
     monthly_meter_revenue.columns = ['Month', 'Meter_Revenue']
+
 
     # Combine transaction revenue with the additional meter-based revenue
     if not monthly_meter_revenue.empty:
         monthly_revenue = monthly_revenue.merge(monthly_meter_revenue, on='Month', how='outer')
         monthly_revenue['Revenue'] = monthly_revenue['Revenue'].fillna(0) + monthly_revenue['Meter_Revenue'].fillna(0)
         monthly_revenue = monthly_revenue[['Month', 'Revenue']]
+
 
     # 2. Cost: Sum all costs (Fuel + Maintenance)
     cost_by_month = local_df_cost_2025.copy()
@@ -611,27 +686,34 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
     if selected_generators:
         cost_by_month = cost_by_month[cost_by_month['Generator'].isin(selected_generators)]
 
+
     # Convert to numeric
     cost_by_month['Amount (NGN)'] = pd.to_numeric(cost_by_month['Amount (NGN)'], errors='coerce').fillna(0)
+
 
     monthly_cost = cost_by_month.groupby('Month')['Amount (NGN)'].sum().reset_index()
     monthly_cost.columns = ['Month', 'Total_Cost']
 
+
     # 3. Merge Revenue and Cost
     margin_data = monthly_revenue.merge(monthly_cost, on='Month', how='outer').fillna(0)
+
 
     # Calculate Gross Margin
     margin_data['Profit'] = margin_data['Revenue'] - margin_data['Total_Cost']
     margin_data['Margin_Percent'] = (margin_data['Profit'] / margin_data['Revenue'] * 100).fillna(0)
     margin_data['Margin_Label'] = margin_data['Margin_Percent'].apply(lambda x: 'Gross Margin' if x >= 0 else 'Gross Margin')
 
+
     # Sort by month order
     month_order = ["January","February","March","April","May","June","July","August","September","October","November","December"]
     margin_data['Month'] = pd.Categorical(margin_data['Month'], categories=month_order, ordered=True)
     margin_data = margin_data.sort_values('Month')
 
+
     # === Revenue vs Cost Chart ===
     fig_margin = make_subplots(specs=[[{"secondary_y": True}]])
+
 
     # Add Revenue bars
     fig_margin.add_trace(
@@ -662,6 +744,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         ),
         secondary_y=False
     )
+
 
     # Add Profit Margin % line (secondary y-axis)
     fig_margin.add_trace(
@@ -704,61 +787,73 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         )
     )
 
+
     # Set y-axes titles
     fig_margin.update_yaxes(title_text="Amount (₦)", secondary_y=False)
     fig_margin.update_yaxes(title_text="Gross Margin (%)", secondary_y=True)
 
+
     # Rotate x-axis labels
     fig_margin.update_xaxes(tickangle=-45)
+
 
     # --- Transactions Trend Chart ---
     chart_df = local_power_df.copy()
 
+
     if selected_months:
         months_selected = selected_months if isinstance(selected_months, list) else [selected_months]
         chart_df = chart_df[chart_df['Month'].isin(months_selected)]
+
 
     # Clean addresses
     meter_to_name_str = {str(k): v for k, v in meter_to_name.items()}
     chart_df['Meter Number Str'] = chart_df['Meter Number'].astype(str).str.replace(r'\.0$', '', regex=True)
     chart_df['Resident Address'] = chart_df['Meter Number Str'].map(meter_to_name_str).fillna(chart_df['Resident Address'])
 
+
     # Exclude non-subscriber locations for trend analysis
     exclude_locations = ['Engineering Yard', 'Head Office', 'Gravitas New Meter', 'Providus', '9mobile', '9 mobile', 'Western Lodge']
     chart_df = chart_df[~chart_df['Resident Address'].isin(exclude_locations)]
+
 
     # Filter by selected location/address
     if selected_locations:
         locations_selected = selected_locations if isinstance(selected_locations, list) else [selected_locations]
         chart_df = chart_df[chart_df['Resident Address'].isin(locations_selected)]
 
+
     # Combine NBIC 1 and NBIC 2
     chart_df['Resident Address'] = chart_df['Resident Address'].astype(str).str.replace(r'(?i)NBIC\s*[12]', 'NBIC', regex=True).str.strip()
+
 
     # Group by Month and Address
     if not chart_df.empty:
         # Identify top 5 locations by revenue
         top_5_locations = chart_df.groupby('Resident Address')['Amount'].sum().nlargest(5).index
 
+
         top_locations_df = chart_df[chart_df['Resident Address'].isin(top_5_locations)]
 
+
         address_monthly = top_locations_df.groupby(['Month', 'Resident Address'], as_index=False)['Amount'].sum()
-        
+       
         # Ensure months are in correct order for plotting
         month_order = ["January","February","March","April","May","June","July","August","September","October","November","December"]
         address_monthly['Month'] = pd.Categorical(address_monthly['Month'], categories=month_order, ordered=True)
         address_monthly = address_monthly.sort_values('Month')
-        
+       
         # Create a complete DataFrame with all months for each top location
         all_months_df = pd.DataFrame({
             'Month': month_order,
             'key': 1
         })
         all_locations_df = pd.DataFrame({'Resident Address': top_5_locations, 'key': 1})
-        
+       
         # Merge to get all combinations of month and top locations
         full_trend_df = pd.merge(all_months_df, all_locations_df, on='key').drop('key', axis=1)
         address_monthly = pd.merge(full_trend_df, address_monthly, on=['Month', 'Resident Address'], how='left').fillna(0)
+
 
         # Create line chart
         fig_trans = px.line(
@@ -770,10 +865,10 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
             labels={'Amount': 'Revenue (₦)', 'Resident Address': 'Subscriber', 'Month': 'Month'},
             color_discrete_sequence=brand_colors
         )
-        
+       
         # Style the line traces
         fig_trans.update_traces(line=dict(width=2.5), marker=dict(size=8))
-        
+       
         fig_trans.update_layout(
             title=dict(text='💰 Top 5 Subscribers - Revenue Trend', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
             autosize=True,
@@ -795,7 +890,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
                 title=dict(text='Subscriber')
             )
         )
-        
+       
         fig_trans.update_xaxes(tickangle=-45)
     else:
         # Empty chart if no data
@@ -806,43 +901,46 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
             margin=dict(t=28, b=8, l=20, r=20)
         )
 
+
     # --- Total Revenue KPI ---
     # Calculate total revenue from meter readings and transaction data
     meter_rev_df = df_meter.copy()
     meter_rev_df['Total Revenue'] = pd.to_numeric(meter_rev_df['Total Revenue'], errors='coerce').fillna(0)
-    
+   
     if selected_years:
         meter_rev_df = meter_rev_df[meter_rev_df['Year'].isin(selected_years)]
     if selected_months:
         meter_rev_df = meter_rev_df[meter_rev_df['Month'].isin(selected_months)]
-        
+       
     total_meter_revenue = meter_rev_df['Total Revenue'].sum()
+
 
     # Calculate transaction revenue
     power_rev_df = power_df.copy()
     power_rev_df['Amount'] = pd.to_numeric(power_rev_df['Amount'], errors='coerce').fillna(0)
-    
+   
     if selected_years:
         power_rev_df = power_rev_df[power_rev_df['Year'].isin(selected_years)]
-    
+   
     if selected_months:
         power_rev_df = power_rev_df[power_rev_df['Month'].isin(selected_months)]
-    
+   
     total_power_revenue = power_rev_df['Amount'].sum()
     total_revenue_value = total_meter_revenue + total_power_revenue
     totalRevenue = f"₦{total_revenue_value:,.0f}"
+
 
     # Prepare filtered data for detailed table calculations (for pivot table and cost breakdown)
     table_df = local_power_df.copy()
     table_df['Resident Address'] = table_df['Meter Number'].map(meter_to_name).fillna(table_df['Resident Address'])
     table_df['Amount'] = pd.to_numeric(table_df['Amount'], errors='coerce').fillna(0)
-    
+   
     # Apply filters only to the table/pivot data
     if selected_months:
         table_df = table_df[table_df['Month'].isin(selected_months)]
     if selected_locations:
         table_df = table_df[table_df['Resident Address'].isin(selected_locations)]
-    
+   
     table_df['Meter Name'] = table_df['Meter Number'].map(meter_to_name)
     if not table_df.empty:
         pivot_list = []
@@ -855,12 +953,13 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
                 aggfunc="sum"
             )
             pivot_list.append(temp)
-        
+       
         pivot = pd.concat(pivot_list, axis=0).fillna('-').reset_index()
     else:
         pivot = pd.DataFrame(columns=['Meter Number'])
 
-    
+
+   
      # === Cost Breakdown Chart ===
     filtered_cost = local_df_cost_2025.copy()
     # Format pivot table values to 2 decimal places
@@ -869,19 +968,22 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else x
     )
 
+
     if selected_generators:
         filtered_cost = filtered_cost[filtered_cost["Generator"].isin(selected_generators)]
     if selected_months:
         filtered_cost = filtered_cost[filtered_cost["Month"].isin(selected_months)]
     df_table = pd.DataFrame(pivot.to_dict('records'))
 
+
     # Calculate Maintenance Costs
     filtered_cost['Amount (NGN)'] = pd.to_numeric(filtered_cost['Amount (NGN)'], errors='coerce').fillna(0)
     maintenance = filtered_cost[filtered_cost['Type of Activity'].str.contains('maintenance', case=False, na=False)]
-    
+   
     routine_cost = maintenance[
         maintenance['Type of Activity'].str.contains('Routine', case=False, na=False)
     ]['Amount (NGN)'].sum()
+
 
     def safe_sum(col):
         """Sum numeric values in a dataframe column, treating '-' as 0"""
@@ -889,22 +991,27 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
             return pd.to_numeric(df_table[col].replace('-', 0), errors='coerce').sum()
         return 0
 
+
     corrective_cost = maintenance[
         maintenance['Type of Activity'].str.contains('Corrective', case=False, na=False)
     ]['Amount (NGN)'].sum()
     gho = safe_sum("Head Office")
     gey = safe_sum("Engineering Yard")
 
+
     # Total Gravitas Revenue
     maintenance = filtered_cost[filtered_cost['Type of Activity'].str.contains('maintenance', case=False, na=False)]
     total_gravitas = gho + gey + gravitas_partner
     gravitas_revenue = f"₦{total_gravitas:,.0f}"
 
+
     # Fuel Costs
     fuel_rows = filtered_cost[filtered_cost['Type of Activity'].str.contains('Fuel', case=False, na=False)]
     fuel_cost = fuel_rows['Amount (NGN)'].sum()
 
+
     df_table.columns = df_table.columns.astype(str).str.strip().str.replace('\u00A0', '', regex=True)
+
 
     # Build cost breakdown data
     cost_data = pd.DataFrame({
@@ -912,12 +1019,14 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         'Cost': [fuel_cost, routine_cost, corrective_cost],
         'Type': ['Fuel', 'Routine', 'Corrective']
     })
-    columns_to_sum = ['Cedar A', 'DIC', 'NBIC 1', 'NBIC 2', 'HELIUM', 
+    columns_to_sum = ['Cedar A', 'DIC', 'NBIC 1', 'NBIC 2', 'HELIUM',
                     'Rosewood A', 'Rosewood B', 'Tuck-shop', 'Cedar B']
+
 
     # Sort by cost descending
     cost_data = cost_data.sort_values('Cost', ascending=False)
     existing_cols = [c for c in columns_to_sum if c in df_table.columns]
+
 
     # Create horizontal bar chart
     fig_cost_bar = px.bar(
@@ -933,13 +1042,14 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
             'Corrective': '#E67E22'
         },
         labels={'Cost': 'Amount (₦)'})
-    
+   
     fig_cost_bar.update_layout(
     bargap=0.15,        # space between bars (0 = no space)
     bargroupgap=0.05    # space between grouped bars
     )
 
-    
+
+   
     subs_sum = (
         df_table[existing_cols]
             .replace('-', 0)
@@ -949,6 +1059,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
             .sum()
     )
 
+
     fig_cost_bar.update_traces(
         texttemplate='₦%{text:,.0f}',
         textposition='inside',
@@ -957,6 +1068,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
     total_subs = subs_sum + gravitas_subscriber
     gravitas_subs_revenue = f"₦{total_subs:,.0f}"    
 
+
     fig_cost_bar.update_layout(
         title=dict(text='Cost Breakdown (Fuel + Maintenance)', font=dict(size=14, color='#C7A64F'), x=0.5, pad=dict(t=10, b=20)),
         xaxis=dict(showgrid=False, zeroline=False, visible=False),
@@ -964,23 +1076,25 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         showlegend=False,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=60, b=40, l=130, r=120),
-        height=400,)
+        margin=dict(t=30, b=40, l=130, r=120),
+        height=350,)
 
-    filtered_cost = local_df_cost_2025.copy() 
-    
+
+    filtered_cost = local_df_cost_2025.copy()
+   
     if selected_generators:
         filtered_cost = filtered_cost[filtered_cost["Generator"].isin(selected_generators)]
-    
+   
     if selected_months:
         filtered_cost = filtered_cost[filtered_cost["Month"].isin(selected_months)]
-    
+   
     fig_pie = px.pie(
         filtered_cost,
         names='Type of Activity',
         values='Amount (NGN)',
         color_discrete_sequence=brand_colors,
-    )   
+    )  
+
 
     fig_pie.update_traces(textposition='inside', textinfo='percent+label')
     fig_pie.update_layout(
@@ -991,12 +1105,15 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         margin=dict(t=60, b=40, l=130, r=120),
     )
 
+
     # Apply a logarithmic scale to the x-axis to prevent large values from overshadowing smaller ones
     fig_cost_bar.update_xaxes(type="log")
+
 
     # --- Total Cost KPI ---
     total_cost_all = filtered_cost['Amount (NGN)'].sum()
     total_cost_display = f"₦{total_cost_all:,.0f}"
+
 
     # Add total cost annotation
     fig_cost_bar.add_annotation(
@@ -1008,16 +1125,18 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         xanchor="left"
     )
 
+
     # --- Fuel Chart ---
     filtered_fuel = local_df_supplied.copy()
     if selected_months:
         filtered_fuel = filtered_fuel[filtered_fuel['Month'].isin(selected_months)]
-    
+   
     # Convert to numeric safely
     for col in ['Fuel Purchased', 'Total Fuel Used']:
         filtered_fuel[col] = pd.to_numeric(filtered_fuel[col], errors='coerce')
-    
+   
     filtered_fuel = filtered_fuel.dropna(subset=['Fuel Purchased','Total Fuel Used'])
+
 
     if not filtered_fuel.empty:
         fig_fuel = px.bar(
@@ -1028,15 +1147,16 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
             labels={'value': 'Litres', 'variable': 'Fuel Metric'},
             color_discrete_sequence=brand_colors[:3]
         )
-        
+       
         # Add values inside bars
         fig_fuel.update_traces(
-            texttemplate='%{y:.0f}', 
+            texttemplate='%{y:.0f}',
             textposition='inside',
             textfont=dict(color='white', size=11)
         )
     else:
         fig_fuel = px.bar(title="No fuel data available")
+
 
     fig_fuel.update_layout(
         title=dict(text='Fuel Management', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
@@ -1056,18 +1176,22 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         )
     )
 
+
     # --- Downtime Chart ---
     filtered_downtime = local_df_downTime.copy()
+
 
     if selected_months:
         filtered_downtime = filtered_downtime[filtered_downtime['Month'].isin(selected_months)]
 
+
     if selected_generators:
         filtered_downtime = filtered_downtime[filtered_downtime['Generator'].isin(selected_generators)]
 
+
     unplanned_outage_hours = filtered_downtime['Duration_Hours'].sum()
     unplanned_outage_display = f"{unplanned_outage_hours:,.1f}h"
-    
+   
     fig_down = px.bar(
         filtered_downtime,
         x="Month",
@@ -1078,8 +1202,10 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         color_discrete_sequence=brand_colors,
     )
 
+
     # Use logarithmic scale to better visualize varying downtime durations
     fig_down.update_yaxes(type="log")
+
 
     fig_down.update_layout(
         title=dict(text='🛠️ Generator Downtime', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
@@ -1104,33 +1230,41 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
 
 
 
+
+
+
+
     # --- Stock Chart ---
     filtered_stock = local_df_rc_melt.copy()
+
 
     if selected_months:
         filtered_stock = filtered_stock[filtered_stock['Month'].isin(selected_months)]
 
+
     if selected_generators:
         filtered_stock = filtered_stock[filtered_stock['Generator_Size'].isin(selected_generators)]
+
 
     if selected_filter:
         filtered_stock = filtered_stock[filtered_stock['Filter_Type'].isin(selected_filter)]
 
+
     if not filtered_stock.empty:
         # Aggregate stock data by month, generator size, and filter type
         stock_detailed = filtered_stock.groupby(['Month','Generator_Size', 'Filter_Type'])[['Consumed_Stock', 'Remaining_Stock']].sum().reset_index()
-        
+       
         if stock_detailed['Month'].dtype == 'object' and '-' in str(stock_detailed['Month'].iloc[0]):
             stock_detailed['Month'] = pd.to_datetime(stock_detailed['Month']).dt.strftime('%B')
-        
+       
         # Sum to get monthly totals
         stock_monthly = stock_detailed.groupby('Month', as_index=False)[['Consumed_Stock', 'Remaining_Stock']].sum()
-        
+       
         # Sort months chronologically
         month_order = ["January","February","March","April","May","June","July","August","September","October","November","December"]
         stock_monthly['Month'] = pd.Categorical(stock_monthly['Month'], categories=month_order, ordered=True)
         stock_monthly = stock_monthly.sort_values('Month')
-        
+       
         # Create bar chart with consumed vs remaining stock
         fig_stock = px.bar(
             stock_monthly,
@@ -1142,6 +1276,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         )
     else:
         fig_stock = px.bar(title="No stock data available")
+
 
     fig_stock.update_layout(
         title=dict(text='📦 Stock Inventory', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
@@ -1161,32 +1296,41 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         )
     )
 
-    
+
+   
+
+
 
 
     fig_stock.update_xaxes(tickangle=-45)
 
+
     # --- Runtime Chart ---
     filtered_runtime = local_df_agg.copy()
+
 
     if selected_months:
         filtered_runtime = filtered_runtime[filtered_runtime['Month'].isin(selected_months)]
 
+
     if selected_generators:
         filtered_runtime = filtered_runtime[filtered_runtime['Generator'].isin(selected_generators)]
+
 
     if not filtered_runtime.empty:
         # Sum hours operated by generator
         gen_hours = filtered_runtime.groupby('Generator')['Hours Operated'].sum().reset_index()
-        
+       
         total_hours_all_gens = gen_hours['Hours Operated'].sum()
         if total_hours_all_gens > 0:
             gen_hours['Percentage'] = (gen_hours['Hours Operated'] / total_hours_all_gens) * 100
         else:
             gen_hours['Percentage'] = 0
 
+
         # Sort from most-used to least-used
         gen_hours = gen_hours.sort_values('Hours Operated', ascending=False)
+
 
         fig_runtime = px.bar(
             gen_hours,
@@ -1200,18 +1344,19 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         )
         # Format text as percentage and customize hover info
         fig_runtime.update_traces(
-            texttemplate='%{text:.1f}%', 
+            texttemplate='%{text:.1f}%',
             textposition='outside',
             hovertemplate='<b>%{x}</b><br>Hours: %{y:,.0f}h<br>Usage: %{customdata[0]:.1f}%<extra></extra>'
         )
         fig_runtime.update_layout(showlegend=False)
-        
+       
         # Add padding to y-axis to prevent text from being cut off
         fig_runtime.update_yaxes(range=[0, gen_hours['Hours Operated'].max() * 1.15])
     else:
         # Create empty bar chart if no data
         fig_runtime = go.Figure()
         fig_runtime.add_annotation(text="No runtime data available", showarrow=False)
+
 
     fig_runtime.update_layout(
         title=dict(text='⏱️ Generator Usage (% of Total Runtime)', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
@@ -1223,47 +1368,55 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         margin=dict(t=40, b=40, l=40, r=40)
     )
 
+
     # --- Percent Change KPIs ---
     revenue_change_display = "N/A"
     fuel_change_display = "N/A"
+
 
     # Calculate current fuel usage
     filtered_fuel_kpi = local_df_supplied.copy()
     if selected_months:
         filtered_fuel_kpi = filtered_fuel_kpi[filtered_fuel_kpi['Month'].isin(selected_months)]
     total_fuel_used = pd.to_numeric(filtered_fuel_kpi['Total Fuel Used'], errors='coerce').sum()
-    
+   
     if selected_months:
         # Current Revenue
         current_total_revenue = total_revenue_value
+
 
         # Determine the previous period
         month_order = list(calendar.month_name)[1:]
         selected_indices = sorted([month_order.index(m) for m in selected_months])
         min_index = selected_indices[0]
         num_months = len(selected_months)
-        
+       
         # Ensure the selected months are a continuous block (e.g., Feb-Mar, not Feb-Apr)
         is_contiguous = all(selected_indices[i] == selected_indices[0] + i for i in range(num_months))
         prev_start_index = min_index - num_months
+
 
         if prev_start_index >= 0 and is_contiguous:
             # Previous period exists and the selection is contiguous
             prev_indices = range(prev_start_index, min_index)
             previous_months = [month_order[i] for i in prev_indices]
 
+
             # Previous Revenue
             prev_power_df = local_power_df[local_power_df['Month'].isin(previous_months)].copy()
             prev_power_df['Resident Address'] = prev_power_df['Meter Number'].map(meter_to_name).fillna(prev_power_df['Resident Address'])
-            
+           
             prev_meter_df = local_df_meter[local_df_meter["Month"].isin(previous_months)].copy()
             prev_meter_df['Total Revenue'] = pd.to_numeric(prev_meter_df['Total Revenue'], errors='coerce').fillna(0)
+
 
             if selected_locations:
                 prev_power_df = prev_power_df[prev_power_df['Resident Address'].isin(selected_locations)]
                 prev_meter_df = prev_meter_df[prev_meter_df['Location'].isin(selected_locations)]
 
+
             previous_total_revenue = prev_power_df['Amount'].sum() + prev_meter_df['Total Revenue'].sum()
+
 
             # Revenue % Change
             if previous_total_revenue > 0:
@@ -1271,15 +1424,19 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
                 arrow, color = ("▲", "green") if percent_change > 0 else (("▼", "red") if percent_change < 0 else ("", "grey"))
                 revenue_change_display = html.Span([f"{percent_change:,.2f}% ", html.Span(arrow, style={'color': color, 'fontSize': '1.2em'})])
 
+
             # Fuel % Change
             prev_fuel_df = local_df_supplied[local_df_supplied['Month'].isin(previous_months)]
             previous_total_fuel_used = pd.to_numeric(prev_fuel_df['Total Fuel Used'], errors='coerce').sum()
+
 
             if previous_total_fuel_used > 0:
                 percent_change = ((total_fuel_used - previous_total_fuel_used) / previous_total_fuel_used) * 100
                 # For fuel, an increase is bad (red), a decrease is good (green)
                 arrow, color = ("▲", "red") if percent_change > 0 else ("▼", "green")
                 fuel_change_display = html.Span([f"💧 {percent_change:,.2f}% ", html.Span(arrow, style={'color': color, 'fontSize': '1.2em'})])
+
+
 
 
     # === Operated Hours & Outage Calculation ===
@@ -1289,7 +1446,9 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
     if selected_generators:
         filtered_runtime = filtered_runtime[filtered_runtime['Generator'].isin(selected_generators)]
 
+
     actual_operated_hours = filtered_runtime['Hours Operated'].sum()
+
 
     # Define daily generator schedule based on day of week
     # Weekday mapping: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday
@@ -1323,8 +1482,10 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         }
     }
 
+
     # Determine date range
     current_year = int(selected_years[0]) if selected_years else 2025
+
 
     if selected_months:
         months = selected_months if isinstance(selected_months, list) else [selected_months]
@@ -1332,7 +1493,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         month_nums = [list(calendar.month_name).index(m) for m in months]
         start_month = min(month_nums)
         end_month = max(month_nums)
-        
+       
         start_date = datetime(current_year, start_month, 1)
         last_day = calendar.monthrange(current_year, end_month)[1]
         end_date = datetime(current_year, end_month, last_day)
@@ -1341,43 +1502,51 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         start_date = datetime(current_year, 1, 1)
         end_date = datetime(current_year, 12, 31)
 
+
     # Calculate scheduled hours for the period
     date_range = pd.date_range(start_date, end_date, freq='D')
     weekday_counts = Counter(date_range.weekday)
 
+
     total_scheduled_hours = 0.0
     scheduled_breakdown = {}
 
+
     for weekday, count in weekday_counts.items():
         day_schedule = daily_schedule.get(weekday, {})
-        
+       
         for gen, hours_per_day in day_schedule.items():
             # Skip if generator not in selection
             if selected_generators and gen not in selected_generators:
                 continue
-            
+           
             scheduled_hours = count * hours_per_day
             total_scheduled_hours += scheduled_hours
-            
+           
             day_name = calendar.day_name[weekday]
             key = f"{gen}_{day_name}"
             scheduled_breakdown[key] = scheduled_hours
 
+
     total_days = (end_date - start_date).days + 1
     total_hours_in_period = total_days * 24
 
+
     operated_hours_display = f"{actual_operated_hours:,.1f}h"
+
 
     # --- Final Fuel Change Check ---
     fuel_change_display = ""
     if selected_months and 'prev_start_index' in locals() and prev_start_index >= 0 and is_contiguous:
         previous_total_fuel_used = pd.to_numeric(prev_fuel_df['Total Fuel Used'], errors='coerce').sum()
 
+
         if previous_total_fuel_used > 0:
             percent_change = ((total_fuel_used - previous_total_fuel_used) / previous_total_fuel_used) * 100
             # For fuel, an increase is bad (red), a decrease is good (green)
             arrow, color = ("▲", "red") if percent_change > 0 else ("▼", "green")
             fuel_change_display = html.Span([f"💧 {percent_change:,.2f}% ", html.Span(arrow, style={'color': color, 'fontSize': '1.2em'})])
+
 
     return (
         fig_margin,
@@ -1395,6 +1564,7 @@ def update_chart(selected_locations, selected_months, selected_years, selected_g
         fig_runtime,
     )
 
+
 if __name__ == "__main__":
     # Check if running as standalone executable
     if getattr(sys, 'frozen', False):
@@ -1403,5 +1573,5 @@ if __name__ == "__main__":
         app.run(debug=False, port=8050)
     else:
         port = int(os.environ.get("PORT", 8050))
-        app.run(debug=True, host='0.0.0.0', port=port)
-        # app.run(debug=True, port=port)
+        # Bind to 0.0.0.0 for Render deployment
+        app.run(debug=False, host='0.0.0.0', port=port)

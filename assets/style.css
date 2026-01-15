@@ -1,21 +1,24 @@
 /* Ensure consistent fonts in Docker */
 * {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
-                 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+                 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
                  'Helvetica Neue', sans-serif !important;
 }
+
 
 /* Force consistent box sizing */
 html {
     box-sizing: border-box;
 }
 
+
 *, *:before, *:after {
     box-sizing: inherit;
 }
 
+
 /* Ensure charts render consistently */
-.js-plotly-plot .plotly, 
+.js-plotly-plot .plotly,
 .js-plotly-plot .plotly div {
     direction: ltr;
     font-family: 'Open Sans', verdana, arial, sans-serif;
@@ -23,11 +26,13 @@ html {
     padding: 0;
 }
 
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
 }
+
 
 .app-grid {
   display: grid;
@@ -43,21 +48,25 @@ html, body {
   overflow: hidden;                  /* prevent page-level double scrollbar */
 }
 
+
 .sidebar {
     grid-area: sidebar;
     background-color: rgb(255, 255, 255);
     margin: 2rem  2rem 2rem 2rem;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch; /* smoother scrolling on mobile */
-    
+   
 }
+
 
 /* Content area below the header */
 .section {
     grid-area: section;
    
 
+
 }
+
 
 .header {
     grid-area: header;
@@ -77,6 +86,7 @@ html, body {
     overflow: hidden; /* Prevent header overflow */
 }
 
+
 /* .kpi-card {
     background: #f7f9fc;
     border-radius: 14px;
@@ -88,6 +98,7 @@ html, body {
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 } */
 
+
 .kpi-card{
   display: flex;
   flex-direction: row;
@@ -98,10 +109,12 @@ html, body {
     font-size: 40px;
 }
 
+
 .kpi-text {
     display: flex;
     flex-direction: column;
 }
+
 
 .kpi-label {
     margin: 0;
@@ -112,12 +125,14 @@ html, body {
     letter-spacing: 0.5px;
 }
 
+
 .kpi-value {
     margin: 4px 0 0 0;
     font-size: 20px;
     font-weight: 700;
     color: #111827;
 }
+
 
 .title {
     font-size: 20px;
@@ -132,6 +147,9 @@ html, body {
   font-size: 14px;
   max-width: 260px;
 }
+
+
+
 
 
 
@@ -150,11 +168,13 @@ html, body {
     box-shadow: 0 2px 4px rgba(199, 166, 79, 0.15);
 }
 
+
 .tab-btn:hover {
     background-color: #E8D5B7;
     border-color: #C7A64F;
     box-shadow: 0 4px 8px rgba(199, 166, 79, 0.25);
 }
+
 
 .active-tab {
     background-color: #C7A64F;
@@ -164,9 +184,14 @@ html, body {
     box-shadow: 0 4px 12px rgba(199, 166, 79, 0.3);
 }
 
+
     /* Soft shadow below the header
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15)
 } */
+
+
+
+
 
 
 
@@ -177,6 +202,7 @@ html, body {
     margin-left: 10%;
 }
 
+
 .section {
     grid-area: section;
     background-color: #F9F7F4;
@@ -185,7 +211,7 @@ html, body {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-start;
-    overflow: auto;   
+    overflow: auto;  
     gap: 0.2rem;
     align-items: flex-start; /* Add this */
     min-width: 0;
@@ -193,11 +219,15 @@ html, body {
 }
 
 
+
+
 /* Ensure cards maintain their layout */
 .card-1, .card-2, .card-3, .card-4, .card-5 {
     flex-shrink: 0; /* Prevent cards from shrinking */
     min-width: 0; /* Allow content to shrink within flex container */
 }
+
+
 
 
 /* ---------- CARD ---------- */
@@ -213,11 +243,13 @@ html, body {
   border: 1px solid #E8D5B7;
   position: relative;
 
+
   /* layout & sizing */
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
 }
+
 
 /* Two-column desktop layout: primary cards wider (60%) and secondary cards narrower (38%) */
 .card-1, .card-3 {
@@ -227,6 +259,7 @@ html, body {
   box-sizing: border-box;
 }
 
+
 .card-4, .card-5 {
   flex: 1 1 47%;
   max-width: 47%;
@@ -235,12 +268,15 @@ html, body {
 }
 
 
+
+
 .card-2{
   flex: 1 1 60%;
   min-width: 60%;
   max-width: 98%;
   box-sizing: border-box;
 }
+
 
 .card-3 {
     display: flex;
@@ -256,11 +292,14 @@ html, body {
     overflow: hidden;
 }
 
+
 .card-1, .card-2, .card-3, .card-4, .card-5 {
     height: 43vh; /* 30% of the viewport height */
     min-height: 220px; /* don't get too small */
     max-height: 400px; /* optional upper limit */
 }
+
+
 
 
 #transactions_table {
@@ -269,10 +308,12 @@ html, body {
     width: 100%;
 }
 
+
 .card-1:hover, .card-2:hover, .card-3:hover, .card-4:hover, .card-5:hover {
   transform: translateY(-6px);
   box-shadow: 0 6px 15px rgba(199, 166, 79, 0.25);
 }
+
 
 .card-value {
   font-size: 1.6rem;
@@ -281,16 +322,19 @@ html, body {
   margin: 0.3rem 0;
 }
 
+
 .card-desc {
   color: #555;
   font-size: 0.9rem;
 }
+
 
 /* Remove extra top spacing directly under the header
 .section > *:first-child,
 section > *:first-child {
   margin-top: 0;
 } */
+
 
 /* Normalize heading top margins within sections */
 .section h1, .section h2, .section h3,
@@ -301,17 +345,26 @@ section h1, section h2, section h3 {
 
 
 
-/* .consumption-chart, .consumption-line, .cost-pie, 
+
+
+
+/* .consumption-chart, .consumption-line, .cost-pie,
 .fuel-chart, .downtime-chart, .stock-chart, .runtime-chart {
     width: 100% !important;
     height: 100% !important;
 } */
+
 
 /* Specifically for pie charts */
 .cost-pie, .runtime-chart {
     height: 280px !important;
     max-height: 280px !important;
 }
+
+
+
+
+
 
 
 
@@ -327,6 +380,7 @@ section h1, section h2, section h3 {
     }
 }
 
+
 @media (max-width: 1200px) {
     .app-grid {
         grid-template-columns: 1.5fr 5fr;
@@ -337,12 +391,14 @@ section h1, section h2, section h3 {
     }
 }
 
+
 /* Add extra bottom space for specific bottom-row cards so they don't touch viewport edge */
 #tab-1 .card-2,
 #tab-2 .card-3,
 #tab-2 .card-4 {
   margin-bottom: 1.25rem;
 }
+
 
 /* Stack to single column on narrower viewports */
 @media (max-width: 1000px) {
@@ -354,7 +410,9 @@ section h1, section h2, section h3 {
   }
 }
 
+
 /* Add these to your existing CSS file */
+
 
 .sidebar-toggle-js {
   display: none !important;
@@ -373,12 +431,13 @@ section h1, section h2, section h3 {
   z-index: 3000 !important;
 }
 
+
 /* Mobile Styles */
 @media (max-width: 992px) {
-  .sidebar-toggle-js { 
-    display: block !important; 
+  .sidebar-toggle-js {
+    display: block !important;
   }
-  
+ 
   .sidebar {
     position: fixed !important;
     z-index: 2000 !important;
@@ -393,18 +452,18 @@ section h1, section h2, section h3 {
     margin: 0 !important;
     overflow-y: auto !important;
   }
-  
+ 
   .sidebar.collapsed {
     transform: translateX(-100%) !important;
     box-shadow: none !important;
   }
-  
+ 
   /* Adjust grid when sidebar collapses */
   .app-grid {
     grid-template-columns: 0fr 1fr !important;
     transition: grid-template-columns 0.3s ease-in-out !important;
   }
-  
+ 
   /* Ensure header content doesn't get hidden by toggle button */
   .header {
     position: relative !important;
@@ -412,12 +471,13 @@ section h1, section h2, section h3 {
   }
 }
 
+
 /* Hide toggle on desktop */
 @media (min-width: 993px) {
-  .sidebar-toggle-js { 
-    display: none !important; 
+  .sidebar-toggle-js {
+    display: none !important;
   }
-  
+ 
   .sidebar.collapsed {
     transform: none !important;
   }
