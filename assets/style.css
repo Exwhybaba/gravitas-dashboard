@@ -118,17 +118,17 @@ html, body {
 
 .kpi-label {
     margin: 0;
-    font-size: 14px;
+    font-size: 13px;
     color: #6b7280;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 
 .kpi-value {
     margin: 4px 0 0 0;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     color: #111827;
 }

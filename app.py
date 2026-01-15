@@ -477,7 +477,7 @@ app.layout = html.Div([
             html.Div([
                 html.Div("📈", className="kpi-icon"),
                 html.Div([
-                    html.P("% Change in Revenue", className="kpi-label"),
+                    html.P("%Revenue Change", className="kpi-label"),
                     html.H3(id="revenue_change_kpi", className="kpi-value")
                 ], className="kpi-text")
             ], className="kpi-card"),
