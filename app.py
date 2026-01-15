@@ -426,9 +426,7 @@ app.layout = html.Div([
     html.Div([
         # Header section for KPIs
         html.Div([
-            html.H2("Power Dashboard", className="title", style={'textAlign': 'left'}),
-
-
+            html.H2("Power Dashboard v2.0", className="title", style={'textAlign': 'left'}),
             # KPIs  
             html.Div([
                 html.Div("💼", className="kpi-icon"),
