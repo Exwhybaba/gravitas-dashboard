@@ -49,6 +49,7 @@ def load_all_data():
 
                 # --- Meter Data ---
                 df_meter = df.parse(0)
+                df_meter.columns = df_meter.columns.str.strip()
                 if 'Total Revenue' in df_meter.columns:
                     df_meter['Total Revenue'] = df_meter['Total Revenue'].astype(str).str.replace(',', '', regex=False)
                     df_meter['Total Revenue'] = df_meter['Total Revenue'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
@@ -70,6 +71,7 @@ def load_all_data():
 
                 # --- Cost Breakdown ---
                 df_cost = df.parse(1)
+                df_cost.columns = df_cost.columns.str.strip()
                 if 'Amount (NGN)' in df_cost.columns:
                     df_cost['Amount (NGN)'] = df_cost['Amount (NGN)'].astype(str).str.replace(',', '', regex=False)
                     df_cost['Amount (NGN)'] = df_cost['Amount (NGN)'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
@@ -209,34 +211,42 @@ def load_all_data():
 
                 # --- Power Transaction ---
                 power_df = df.parse(6)
+                power_df.columns = power_df.columns.str.strip()
                 if 'Amount' in power_df.columns:
                     power_df['Amount'] = power_df['Amount'].astype(str).str.replace(',', '', regex=False)
                     power_df['Amount'] = power_df['Amount'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
                     power_df['Amount'] = pd.to_numeric(power_df['Amount'], errors='coerce').fillna(0)
 
-
-                try:
-                    power_df['Transaction Date'] = power_df['Transaction Date'].astype(str)
-                    power_df['Transaction Date'] = pd.to_datetime(power_df['Transaction Date'], dayfirst=True, errors='coerce')
-                   
-                    if not pd.api.types.is_datetime64_any_dtype(power_df['Transaction Date']):
-                        power_df['Transaction Date'] = power_df['Transaction Date'].astype(str)
-                        power_df['Transaction Date'] = pd.to_datetime(power_df['Transaction Date'], dayfirst=True, errors='coerce')
-                   
-                    power_df = power_df.dropna(subset=['Transaction Date'])
-                except Exception:
-                    pass
-
-
-                # Extract month name for easier filtering in callback (keep all months)
+                # Prioritize existing Year/Month columns from source
                 if 'Year' in power_df.columns:
-                    power_df['Year'] = power_df['Year'].astype(str).str.replace(r'\.0', '', regex=True)
-                elif 'Transaction Date' in power_df.columns:
-                    power_df['Year'] = power_df['Transaction Date'].dt.strftime('%Y')
+                    power_df['Year'] = power_df['Year'].astype(str).str.replace(r'\.0', '', regex=True).str.strip()
+                
+                if 'Month' in power_df.columns:
+                    power_df['Month'] = power_df['Month'].astype(str).str.strip()
 
+                if 'Transaction Date' in power_df.columns:
+                    # Robust date parsing (still useful for filling gaps)
+                    if not pd.api.types.is_datetime64_any_dtype(power_df['Transaction Date']):
+                        # Try parsing with dayfirst=True (common in Nigeria)
+                        temp_dates = pd.to_datetime(power_df['Transaction Date'].astype(str), dayfirst=True, errors='coerce')
+                        # If too many failures (>80%), try standard parsing (Month-First)
+                        if temp_dates.isna().mean() > 0.8:
+                            temp_dates = pd.to_datetime(power_df['Transaction Date'].astype(str), errors='coerce')
+                        power_df['Transaction Date'] = temp_dates
 
-                if 'Month' not in power_df.columns and 'Transaction Date' in power_df.columns:
-                    power_df['Month'] = power_df['Transaction Date'].dt.strftime('%B')
+                    # Fill missing Year/Month from Transaction Date if needed
+                    if 'Year' not in power_df.columns:
+                        power_df['Year'] = power_df['Transaction Date'].dt.strftime('%Y')
+                    else:
+                        power_df['Year'] = power_df['Year'].fillna(power_df['Transaction Date'].dt.strftime('%Y'))
+
+                    if 'Month' not in power_df.columns:
+                        power_df['Month'] = power_df['Transaction Date'].dt.strftime('%B')
+                    else:
+                        power_df['Month'] = power_df['Month'].fillna(power_df['Transaction Date'].dt.strftime('%B'))
+
+                # Only drop rows if we absolutely lack a Month (grouping key)
+                power_df = power_df.dropna(subset=['Month'])
 
 
                 power_df.reset_index(drop=True, inplace=True)
@@ -426,7 +436,7 @@ app.layout = html.Div([
     html.Div([
         # Header section for KPIs
         html.Div([
-            html.H2("Power Dashboard v2.0", className="title", style={'textAlign': 'left'}),
+            html.H2("Power Dashboard", className="title", style={'textAlign': 'left'}),
             # KPIs  
             html.Div([
                 html.Div("💼", className="kpi-icon"),
