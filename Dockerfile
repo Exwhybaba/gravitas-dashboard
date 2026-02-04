@@ -20,8 +20,7 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application source code
-COPY app.py /app/
-COPY assets/ /app/assets/
+COPY . /app/
 
 # Expose Dash app port
 EXPOSE 8050
