@@ -407,7 +407,7 @@ def register_callbacks(app):
         filtered_cost = local_df_cost_2025.copy()
         # Format pivot table values to 2 decimal places
         cols_to_format = [col for col in pivot.columns if col != "Meter Number"]
-        pivot[cols_to_format] = pivot[cols_to_format].applymap(
+        pivot[cols_to_format] = pivot[cols_to_format].map(
             lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else x
         )
 
