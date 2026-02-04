@@ -1,4 +1,4 @@
-from dash import Input, Output, callback_context, html
+from dash import Input, Output, callback_context, html, dash_table
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -50,8 +50,9 @@ def register_callbacks(app):
             Output('fuel_chart', 'figure'),
             Output('fuel_change_kpi', 'children'),
             Output('downtime_chart', 'figure'),
-            Output('stock_chart', 'figure'),
+            Output('stock_table_container', 'children'),
             Output('runtime_chart', 'figure'),
+            Output('electrical_table_container', 'children'),
         ],
         [
             Input('location_filter', 'value'),
@@ -78,6 +79,7 @@ def register_callbacks(app):
             local_df_agg = data_loader.df_agg.copy()
             local_df_cost = data_loader.df_cost.copy()
             local_run_time = data_loader.run_time.copy()
+            local_df_electrical = data_loader.df_electrical.copy() if data_loader.df_electrical is not None else pd.DataFrame()
         
         # === Apply Year Filter ===
         if selected_years:
@@ -628,51 +630,18 @@ def register_callbacks(app):
         if selected_filter:
             filtered_stock = filtered_stock[filtered_stock['Filter_Type'].isin(selected_filter)]
 
+        # --- Stock Table ---
         if not filtered_stock.empty:
-            # Aggregate stock data by month, generator size, and filter type
-            stock_detailed = filtered_stock.groupby(['Month','Generator_Size', 'Filter_Type'])[['Consumed_Stock', 'Remaining_Stock']].sum().reset_index()
-           
-            if stock_detailed['Month'].dtype == 'object' and '-' in str(stock_detailed['Month'].iloc[0]):
-                stock_detailed['Month'] = pd.to_datetime(stock_detailed['Month']).dt.strftime('%B')
-           
-            # Sum to get monthly totals
-            stock_monthly = stock_detailed.groupby('Month', as_index=False)[['Consumed_Stock', 'Remaining_Stock']].sum()
-           
-            # Sort months chronologically
-            stock_monthly['Month'] = pd.Categorical(stock_monthly['Month'], categories=constants.MONTH_ORDER, ordered=True)
-            stock_monthly = stock_monthly.sort_values('Month')
-           
-            # Create bar chart with consumed vs remaining stock
-            fig_stock = px.bar(
-                stock_monthly,
-                x='Month',
-                y=['Consumed_Stock', 'Remaining_Stock'],
-                barmode='group',
-                labels={'Month': 'Month', 'value': 'Units'},
-                color_discrete_sequence=['#C7A64F', '#2C3E50']
+            stock_table = dash_table.DataTable(
+                data=filtered_stock.to_dict('records'),
+                columns=[{'name': str(i), 'id': str(i)} for i in filtered_stock.columns if i not in ['Month', 'Year', 'Month 2']],
+                style_table={'height': '300px', 'overflowY': 'auto'},
+                style_cell={'textAlign': 'left', 'padding': '5px', 'fontFamily': 'Arial', 'minWidth': '80px', 'fontSize': '12px'},
+                style_header={'backgroundColor': '#f1f1f1', 'fontWeight': 'bold', 'color': '#2C3E50', 'padding': '5px', 'fontSize': '12px'},
+                page_size=10
             )
         else:
-            fig_stock = px.bar(title="No stock data available")
-
-        fig_stock.update_layout(
-            title=dict(text='📦 Stock Inventory', font=dict(size=12, color='#111827'), x=0.5, xanchor='center'),
-            autosize=True,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(t=28, b=8, l=20, r=120),
-            legend=dict(
-                orientation='v',
-                x=1.02,
-                xanchor='left',
-                y=1,
-                yanchor='top',
-                font=dict(size=10),
-                bgcolor='rgba(0,0,0,0)',
-                borderwidth=0
-            )
-        )
-
-        fig_stock.update_xaxes(tickangle=-45)
+            stock_table = html.Div("No stock data available", style={'padding': '20px', 'textAlign': 'center'})
 
         # --- Runtime Chart ---
         filtered_runtime = local_df_agg.copy()
@@ -810,6 +779,19 @@ def register_callbacks(app):
                 arrow, color = ("▲", "red") if percent_change > 0 else ("▼", "green")
                 fuel_change_display = html.Span([f"💧 {percent_change:,.2f}% ", html.Span(arrow, style={'color': color, 'fontSize': '1.2em'})])
 
+        # --- Electrical Inventory Table ---
+        if not local_df_electrical.empty:
+            electrical_table = dash_table.DataTable(
+                data=local_df_electrical.to_dict('records'),
+                columns=[{'name': str(i), 'id': str(i)} for i in local_df_electrical.columns],
+                style_table={'height': '300px', 'overflowY': 'auto'},
+                style_cell={'textAlign': 'left', 'padding': '5px', 'fontFamily': 'Arial', 'minWidth': '80px', 'fontSize': '12px'},
+                style_header={'backgroundColor': '#f1f1f1', 'fontWeight': 'bold', 'color': '#2C3E50', 'padding': '5px', 'fontSize': '12px'},
+                page_size=10
+            )
+        else:
+            electrical_table = html.Div("No electrical inventory data available", style={'padding': '20px', 'textAlign': 'center'})
+
         return (
             fig_margin,
             fig_trans,
@@ -822,6 +804,7 @@ def register_callbacks(app):
             fig_fuel,
             fuel_change_display,
             fig_down,
-            fig_stock,
+            stock_table,
             fig_runtime,
+            electrical_table,
         )

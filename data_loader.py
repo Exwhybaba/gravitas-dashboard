@@ -23,11 +23,12 @@ df_stock = None
 df_rc = None
 df_rc_melt = None
 power_df = None
+df_electrical = None
 
 def load_all_data():
     """Load and process data from Google Sheets with thread safety."""
     global df_meter, df_cost, df_cost_2025, df_downTime, run_time, df_agg
-    global df_supplied, df_stock, df_rc, df_rc_melt, power_df, last_refresh_time
+    global df_supplied, df_stock, df_rc, df_rc_melt, power_df, last_refresh_time, df_electrical
    
     with data_lock:
         try:
@@ -232,6 +233,9 @@ def load_all_data():
                 power_df = power_df.dropna(subset=['Month'])
 
                 power_df.reset_index(drop=True, inplace=True)
+
+                # --- Electrical Inventory (Last Sheet) ---
+                df_electrical = df.parse(7)
                
                 last_refresh_time = current_time
                 print("Data refresh completed successfully")

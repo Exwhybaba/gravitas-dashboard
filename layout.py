@@ -107,7 +107,14 @@ def create_layout(app):
                 ], className="card-1"),
                 html.Div([dcc.Graph(id='runtime_chart', className='runtime-chart', config={"responsive": True}, style={"width": "100%", "height": "100%", "flex": "1 1 auto"})], className="card-5"),
                 html.Div([
-                    dcc.Graph(id='stock_chart', className='stock-chart', config={"responsive": True}, style={"width": "100%", "height": "100%", "flex": "1 1 auto"})
+                    dcc.Tabs([
+                        dcc.Tab(label='Stock Inventory', style={'padding': '4px', 'height': '32px', 'fontSize': '12px'}, selected_style={'padding': '4px', 'height': '32px', 'fontSize': '12px', 'backgroundColor': '#C7A64F', 'color': 'white', 'borderTop': '3px solid #C7A64F'}, children=[
+                            html.Div(id='stock_table_container', style={"width": "100%", "height": "100%", "overflow": "auto", "padding": "5px"})
+                        ]),
+                        dcc.Tab(label='Electrical Inventory', style={'padding': '4px', 'height': '32px', 'fontSize': '12px'}, selected_style={'padding': '4px', 'height': '32px', 'fontSize': '12px', 'backgroundColor': '#C7A64F', 'color': 'white', 'borderTop': '3px solid #C7A64F'}, children=[
+                            html.Div(id='electrical_table_container', style={"width": "100%", "height": "100%", "overflow": "auto", "padding": "5px"})
+                        ])
+                    ], style={'height': '32px'}, colors={"border": "#d6d6d6", "primary": "#C7A64F", "background": "#f9f9f9"})
                 ], className="card-3"),
                 html.Div([dcc.Graph(id='downtime_chart', className='downtime-chart', config={"responsive": True}, style={"width": "100%", "height": "100%", "flex": "1 1 auto"})], className="card-4"),
             ], id="tab-2", className="section", style={"display": "none"}),
